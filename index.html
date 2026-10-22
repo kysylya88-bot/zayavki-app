@@ -135,11 +135,11 @@ function lineTxt(l){
   return l.newName+(l.replCode?" (замена "+l.replCode+")":" (вне проекта)");
 }
 function renderDraft(a,f){
-  var d=S.draft,h='<h2>'+(d.orig?'Редактирование заявки №':'Заявка №')+(d.no||nextNo())+'</h2>'+(d.orig?'<div class="card" style="background:#fff7d6">Вы правите уже сформированную заявку. Нажмите «Сформировать», чтобы сохранить изменения, и отправьте её заново. Если снабжение уже загрузило прежнюю версию в реестр — предупредите его.<br><button class="btn sec" id="bCancelEdit" style="margin-top:8px">Отменить правки</button></div>':'');
+  var d=S.draft,h='<h2>'+(d.corrOf?'Корректирующая заявка №':(d.orig?'Редактирование заявки №':'Заявка №'))+(d.no||nextNo())+(d.corrOf?' к №'+d.corrOf:'')+'</h2>'+(d.corrOf?'<div class="card" style="background:#fff7d6">Укажите в каждой строке, сколько должно быть <b>в итоге</b>. Уменьшение вернёт остаток в реестр. Можно добавить и новые позиции. Строки без изменений в заявку не попадут.</div>':'')+(d.orig?'<div class="card" style="background:#fff7d6">Вы правите уже сформированную заявку. Нажмите «Сформировать», чтобы сохранить изменения, и отправьте её заново. Если снабжение уже загрузило прежнюю версию в реестр — предупредите его.<br><button class="btn sec" id="bCancelEdit" style="margin-top:8px">Отменить правки</button></div>':'');
   h+='<div class="card"><div class="row"><div><label>Номер заявки</label><input id="dNo" type="number" inputmode="numeric" value="'+(d.no||nextNo())+'"></div><div><label>Нужно к дате</label><input id="dDue" type="date" value="'+esc(d.due||addDays(S.set.days))+'"></div></div><label>Кто составил</label><input id="dAuthor" value="'+esc(d.author||S.set.author)+'" placeholder="Фамилия, должность"></div>';
   if(!d.lines.length)h+='<div class="empty">В заявке пока нет позиций.<br>Вернитесь в каталог и нажмите на позицию.</div>';
   else{h+='<div class="card"><table class="t">';d.lines.forEach(function(l,i){
-    h+='<tr><td><b>'+(i+1)+'.</b></td><td>'+esc(lineTxt(l))+(l.note?'<br><span class="mut">'+esc(l.note)+'</span>':'')+(l.analog?'<br><span class="mut">допускается аналог</span>':'')+'</td><td style="text-align:right;white-space:nowrap"><button class="qb" data-edit="'+i+'">'+fmt(l.qty)+' '+esc(l.unit)+' ✎</button></td><td><button class="x" data-del="'+i+'">✕</button></td></tr>'});
+    h+='<tr><td><b>'+(i+1)+'.</b></td><td>'+esc(lineTxt(l))+(l.note?'<br><span class="mut">'+esc(l.note)+'</span>':'')+(l.analog?'<br><span class="mut">допускается аналог</span>':'')+(l.base!==undefined?'<br><span class="mut">было '+fmt(l.base)+' → '+(l.qty||l.replQty?'<b>станет '+fmt(l.base+l.qty)+'</b>':'без изменений')+'</span>':'')+'</td><td style="text-align:right;white-space:nowrap"><button class="qb" data-edit="'+i+'">'+fmt(l.base!==undefined?l.base+l.qty:l.qty)+' '+esc(l.unit)+' ✎</button></td><td><button class="x" data-del="'+i+'">✕</button></td></tr>'});
     h+='</table></div>';}
   a.innerHTML=h;
   f.innerHTML='<button class="btn sec" id="bBack">← Каталог</button>'+(d.lines.length?'<button class="btn" id="bFinish">Сформировать</button>':'');
@@ -148,7 +148,7 @@ function renderHist(a,f){
   var h='<h2>Сформированные заявки</h2>';
   if(!S.reqs.length)h+='<div class="empty">Пока ничего нет</div>';
   S.reqs.slice().reverse().forEach(function(r){
-    h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+(r.rev?' (изм. '+r.rev+')':'')+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+(r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>')+'</div>';
+    h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+(r.rev?' (изм. '+r.rev+')':'')+(r.corr?' (корр. к №'+r.corr+')':'')+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+(r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>')+'</div>';
   });
   a.innerHTML=h;f.innerHTML='<button class="btn sec big" id="bBack">← Каталог</button>';
 }
@@ -215,7 +215,7 @@ function xlsx(rows,widths){
    {n:"xl/styles.xml",d:u8(styles)},{n:"xl/worksheets/sheet1.xml",d:u8(sheet)}]);
 }
 function reqXlsx(r){
-  var rows=[[{v:"Заявка №"+r.no+(r.rev?" (изм. "+r.rev+")":"")+" на поставку материалов и оборудования",s:3}],["Объект: "+(S.snap.object||S.snap.label)],["Дата: "+ru(r.date)+"   Составил: "+(r.author||"")],["Версия проекта: "+(r.ver||"")],[],
+  var rows=[[{v:(r.corr?"КОРРЕКТИРУЮЩАЯ заявка №"+r.no+" к заявке №"+r.corr:"Заявка №"+r.no+(r.rev?" (изм. "+r.rev+")":"")+" на поставку материалов и оборудования"),s:3}],["Объект: "+(S.snap.object||S.snap.label)],["Дата: "+ru(r.date)+"   Составил: "+(r.author||"")],["Версия проекта: "+(r.ver||"")],[],
    [{v:"№",s:1},{v:"Раздел",s:1},{v:"Код",s:1},{v:"Наименование",s:1},{v:"Ед. изм.",s:1},{v:"Кол-во",s:1},{v:"Нужно к",s:1},{v:"Примечание",s:1}]];
   r.lines.forEach(function(l,i){var nm=l.code?l.name:(l.newName+(l.replCode?" (вместо "+l.replCode+")":" (вне проекта)"));
     rows.push([{v:i+1,s:2},{v:l.sect,s:2},{v:l.code||"ВНЕ-СМЕТЫ",s:2},{v:nm,s:2},{v:l.unit,s:2},{v:l.qty,s:2},{v:ru(r.due),s:2},{v:(l.analog?"Допускается аналог. ":"")+(l.note||""),s:2}])});
@@ -227,17 +227,20 @@ function reqCsv(r){
   return new Blob(["﻿"+o.join("\r\n")],{type:"text/csv"});
 }
 function reqText(r){
-  var t="Заявка №"+r.no+(r.rev?" (изменение "+r.rev+")":"")+" — "+(S.snap.label||"")+"\nДата: "+ru(r.date)+" · нужно к "+ru(r.due)+"\nСоставил: "+(r.author||"—")+"\nВерсия проекта: "+(r.ver||"—")+"\n\n";
-  r.lines.forEach(function(l,i){t+=(i+1)+". "+(l.code?l.code+" | "+l.name:l.newName+(l.replCode?" (замена "+l.replCode+")":" (вне проекта)"))+" — "+fmt(l.qty)+" "+l.unit+(l.analog?" [допускается аналог]":"")+(l.note?" · "+l.note:"")+"\n"});
+  var t=(r.corr?"КОРРЕКТИРУЮЩАЯ заявка №"+r.no+" к заявке №"+r.corr:"Заявка №"+r.no+(r.rev?" (изменение "+r.rev+")":""))+" — "+(S.snap.label||"")+"\nДата: "+ru(r.date)+" · нужно к "+ru(r.due)+"\nСоставил: "+(r.author||"—")+"\nВерсия проекта: "+(r.ver||"—")+"\n\n";
+  r.lines.forEach(function(l,i){t+=(i+1)+". "+(l.code?l.code+" | "+l.name:l.newName+(l.replCode?" (замена "+l.replCode+")":" (вне проекта)"))+" — "+(r.corr&&l.qty>0?"+":"")+fmt(l.qty)+" "+l.unit+(l.analog?" [допускается аналог]":"")+(l.note?" · "+l.note:"")+"\n"});
   return t;
 }
 function finish(){
   var d=S.draft;if(!d.lines.length)return;
   var no=parseInt($("dNo").value,10)||nextNo(),due=$("dDue").value||addDays(S.set.days),au=$("dAuthor").value.trim();
   if(S.reqs.some(function(x){return x.no===no})){toast("Заявка с номером "+no+" уже есть в истории — смените номер");return}
-  var verS={};d.lines.forEach(function(l){verS[l.sect]=1});
+  var dl=d.lines;
+  if(d.corrOf){dl=d.lines.filter(function(l){return l.qty!==0||l.replQty!==0}).map(function(l){var c=JSON.parse(JSON.stringify(l));delete c.base;delete c.baseRepl;c.note="КОРРЕКТИРОВКА к №"+d.corrOf+(c.note?"; "+c.note:"");return c});
+    if(!dl.length){toast("Нет изменений — измените хотя бы одну строку");return}}
+  var verS={};dl.forEach(function(l){verS[l.sect]=1});
   var ver=Object.keys(verS).map(function(s){return s+": "+((S.snap.ver&&S.snap.ver[s])||"—")}).join("; ");
-  var r={no:no,date:iso(new Date()),ts:new Date().toISOString().slice(0,16).replace("T"," "),due:due,author:au,ver:ver,lines:d.lines.slice(),sent:false};if(d.orig)r.rev=(d.orig.rev||0)+1;
+  var r={no:no,date:iso(new Date()),ts:new Date().toISOString().slice(0,16).replace("T"," "),due:due,author:au,ver:ver,lines:dl.slice(),sent:false};if(d.orig)r.rev=(d.orig.rev||0)+1;if(d.corrOf)r.corr=d.corrOf;
   S.reqs.push(r);S.set.author=au;S.draft={no:null,lines:[],due:"",author:""};save();
   shareSheet(r);
 }
@@ -246,7 +249,7 @@ function shareSheet(r){
    '<button class="btn big" id="sShare" data-no="'+r.no+'">Отправить (Excel + текст)…</button>'+
    '<button class="btn sec big" id="sCopy" data-no="'+r.no+'" style="margin-top:8px">Скопировать текст для Bitrix</button>'+
    '<button class="btn sec big" id="sXlsx" data-no="'+r.no+'" style="margin-top:8px">Сохранить файл Excel</button>'+
-   '<button class="btn sec big" id="sEdit" data-no="'+r.no+'" style="margin-top:8px">Редактировать заявку</button>'+
+   (r.sent?'<button class="btn sec big" id="sCorr" data-no="'+r.no+'" style="margin-top:8px">Выпустить корректирующую заявку</button>':'<button class="btn sec big" id="sEdit" data-no="'+r.no+'" style="margin-top:8px">Редактировать заявку</button>')+
    '<button class="btn sec big" id="sCsv" data-no="'+r.no+'" style="margin-top:8px">Сохранить файл для реестра (csv)</button>'+
    '<label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:16px;margin-top:14px"><input id="sSent" type="checkbox" style="width:22px;height:22px"'+(r.sent?" checked":"")+' data-no="'+r.no+'"> Отправлено в Bitrix</label>'+
    '<button class="btn sec big" id="sClose2" style="margin-top:10px">Готово</button>';
@@ -273,7 +276,7 @@ document.addEventListener("click",function(e){
   if(b.dataset.req){var r=getReq(b.dataset.req);if(r)shareSheet(r);return}
   if(b.dataset.edit!==undefined){lineSheet(+b.dataset.edit);return}
   if(b.dataset.st2){var a2=b.dataset.st2.split(":"),q2=$(a2[0]),v2=parseFloat(String(q2.value).replace(",","."))||0;q2.value=Math.max(0,Math.round((v2+(+a2[1]))*1000)/1000);return}
-  if(b.dataset.del!==undefined){S.draft.lines.splice(+b.dataset.del,1);save();render();return}
+  if(b.dataset.del!==undefined){var dl0=S.draft.lines[+b.dataset.del];if(dl0&&dl0.base!==undefined){dl0.qty=0;dl0.replQty=0}else S.draft.lines.splice(+b.dataset.del,1);save();render();return}
   if(b.dataset.st){var q=$("iQty"),v=parseFloat(String(q.value).replace(",","."))||0;v=Math.max(0,Math.round((v+(+b.dataset.st))*1000)/1000);q.value=v;q.dispatchEvent(new Event("input"));return}
   switch(id){
    case"bLoad":$("fSnap").click();break;
@@ -289,6 +292,7 @@ document.addEventListener("click",function(e){
    case"bCancelEdit":if(S.draft.orig&&confirm("Отменить правки и вернуть заявку как была?")){var o=S.draft.orig;S.reqs.push(o);S.draft={no:null,lines:[],due:"",author:""};save();S.view="hist";render()}break;
    case"lSave":saveLine(+b.dataset.i);break;
    case"sEdit":editReq(b.dataset.no);break;
+   case"sCorr":corrReq(b.dataset.no);break;
    case"sShare":doShare(getReq(b.dataset.no));break;
    case"sCopy":var r1=getReq(b.dataset.no);(navigator.clipboard?navigator.clipboard.writeText(reqText(r1)):Promise.reject()).then(function(){toast("Текст скопирован — вставьте в Bitrix")},function(){toast("Не удалось скопировать")});break;
    case"sXlsx":var r2=getReq(b.dataset.no);dl(reqXlsx(r2),fname(r2,"xlsx"));break;
@@ -303,7 +307,7 @@ document.addEventListener("input",function(e){
   if(t.id==="q"){S.q=t.value;var p=t.selectionStart;render();var n=$("q");n.focus();try{n.setSelectionRange(p,p)}catch(x){}}
   else if(t.id==="iQty"||t.id==="rRep"||t.id==="rQty"){var it=find(document.querySelector("#sAdd").dataset.code);if(it)checkQty(it)}
 });
-document.addEventListener("change",function(e){if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;save()}}});
+document.addEventListener("change",function(e){if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;save();shareSheet(r)}}});
 $("bg").addEventListener("click",function(){closeSheet();render()});
 function keepDraftFields(){var n=$("dNo");if(n){S.draft.no=parseInt(n.value,10)||null;S.draft.due=$("dDue").value;S.draft.author=$("dAuthor").value;save()}}
 function menu(){openSheet('<b>Меню</b><button class="btn sec big" id="mLoad" style="margin-top:12px">Загрузить новый снимок реестра</button><button class="btn sec big" id="mHist" style="margin-top:8px">Сформированные заявки</button><button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
@@ -322,10 +326,23 @@ function addItem(code){
   }
   save();closeSheet();render();toast("Добавлено в заявку №"+(S.draft.no||nextNo()));
 }
+function lkey(l){return (l.code||("N:"+l.newName))+"|"+(l.replCode||"")}
+function corrReq(no){
+  var r=getReq(no);if(!r)return;
+  if(S.draft.lines.length){toast("Сначала сформируйте или очистите текущий черновик");return}
+  var m={},ord=[];
+  function add(l){var k=lkey(l);if(!m[k]){m[k]=JSON.parse(JSON.stringify(l));m[k].qty=0;m[k].replQty=0;ord.push(k)}m[k].qty+=l.qty;m[k].replQty+=(l.replQty||0)}
+  r.lines.forEach(add);
+  S.reqs.forEach(function(x){if(x.corr==r.no)x.lines.forEach(function(l){if(m[lkey(l)])add(l)})});
+  var lines=[];ord.forEach(function(k){var l=m[k];if(l.qty<=0&&l.replQty<=0)return;l.base=Math.round(l.qty*1000)/1000;l.baseRepl=Math.round(l.replQty*1000)/1000;l.qty=0;l.replQty=0;l.note="";l.analog=false;lines.push(l)});
+  if(!lines.length){toast("В заявке нечего корректировать");return}
+  S.draft={no:null,lines:lines,due:r.due,author:S.set.author||r.author,corrOf:r.no};
+  save();closeSheet();S.view="draft";render();window.scrollTo(0,0);toast("Корректирующая к заявке №"+r.no);
+}
 function editReq(no){
   var r=getReq(no);if(!r)return;
   if(S.draft.lines.length){toast("Сначала сформируйте или очистите текущий черновик");return}
-  if(r.sent&&!confirm("Заявка уже отмечена как отправленная. После правки её нужно отправить заново, а снабжение должно заменить прежнюю версию. Править?"))return;
+  if(r.sent){toast("Заявка уже отправлена — выпустите корректирующую");return}
   var cp=JSON.parse(JSON.stringify(r));
   S.reqs=S.reqs.filter(function(x){return x.no!==r.no});
   S.draft={no:r.no,lines:cp.lines,due:r.due,author:r.author,orig:JSON.parse(JSON.stringify(r))};
@@ -336,29 +353,31 @@ function lineSheet(i){
   var it=l.code?find(l.code):(l.replCode?find(l.replCode):null);
   var h='<b>'+esc(lineTxt(l))+'</b>';
   if(l.replCode){
-    h+='<div class="mut" style="margin:6px 0">Замена. Можно изменить количество нового и заменяемого.</div>'+
-    '<label>Новое, '+esc(l.unit)+'</label><div class="row"><button class="btn sec" data-st2="lQty:-1">−</button><input id="lQty" inputmode="decimal" value="'+l.qty+'"><button class="btn sec" data-st2="lQty:1">+</button></div>'+
-    '<label>Заменяется (макс. '+(it?fmt(avail(it)+l.replQty):"—")+')</label><div class="row"><button class="btn sec" data-st2="lRep:-1">−</button><input id="lRep" inputmode="decimal" value="'+l.replQty+'"><button class="btn sec" data-st2="lRep:1">+</button></div>';
+    var bs=l.base||0,br=l.baseRepl||0;
+    h+='<div class="mut" style="margin:6px 0">Замена. '+(l.base!==undefined?'Укажите итоговые значения (было '+fmt(l.base)+' / '+fmt(l.baseRepl)+').':'Можно изменить количество нового и заменяемого.')+'</div>'+
+    '<label>Новое, '+esc(l.unit)+'</label><div class="row"><button class="btn sec" data-st2="lQty:-1">−</button><input id="lQty" inputmode="decimal" value="'+(bs+l.qty)+'"><button class="btn sec" data-st2="lQty:1">+</button></div>'+
+    '<label>Заменяется (макс. '+(it?fmt(br+avail(it)+l.replQty):"—")+')</label><div class="row"><button class="btn sec" data-st2="lRep:-1">−</button><input id="lRep" inputmode="decimal" value="'+(br+l.replQty)+'"><button class="btn sec" data-st2="lRep:1">+</button></div>';
   }else{
-    h+='<div class="mut" style="margin:6px 0">'+(it?'можно до '+fmt(avail(it)+l.qty)+' '+esc(l.unit):'вне проекта')+'</div>'+
-    '<label>Количество, '+esc(l.unit)+'</label><div class="row"><button class="btn sec" data-st2="lQty:-1">−</button><input id="lQty" inputmode="decimal" value="'+l.qty+'"><button class="btn sec" data-st2="lQty:1">+</button></div>';
+    h+='<div class="mut" style="margin:6px 0">'+(l.base!==undefined?'было '+fmt(l.base)+' · ':'')+(it?'можно до '+fmt((l.base||0)+avail(it)+l.qty)+' '+esc(l.unit):'вне проекта')+'</div>'+
+    '<label>'+(l.base!==undefined?'Итого должно быть, ':'Количество, ')+esc(l.unit)+'</label><div class="row"><button class="btn sec" data-st2="lQty:-1">−</button><input id="lQty" inputmode="decimal" value="'+((l.base||0)+l.qty)+'"><button class="btn sec" data-st2="lQty:1">+</button></div>';
   }
   h+='<button class="btn big" id="lSave" data-i="'+i+'" style="margin-top:12px">Сохранить</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>';
   openSheet(h);
 }
 function saveLine(i){
   var l=S.draft.lines[i];if(!l)return;
+  var bs=l.base||0,br=l.baseRepl||0,isC=l.base!==undefined;
   var q=parseFloat(String($("lQty").value).replace(",","."))||0;
   var it=l.code?find(l.code):(l.replCode?find(l.replCode):null);
-  if(q<=0){toast("Количество должно быть больше нуля");return}
+  if(isC?q<0:q<=0){toast(isC?"Количество не может быть отрицательным":"Количество должно быть больше нуля");return}
   if(l.replCode){
     var rq=parseFloat(String($("lRep").value).replace(",","."))||0;
-    if(rq<=0){toast("Укажите, сколько заменяется");return}
-    if(it&&rq>avail(it)+l.replQty+1e-9){toast("Заменяется больше, чем осталось по проекту ("+fmt(avail(it)+l.replQty)+")");return}
+    if(isC?rq<0:rq<=0){toast("Проверьте, сколько заменяется");return}
+    if(it&&rq>br+avail(it)+l.replQty+1e-9){toast("Заменяется больше, чем осталось по проекту ("+fmt(br+avail(it)+l.replQty)+")");return}
     l.note=String(l.note||"").replace(/вместо [\d.,]+ /,"вместо "+fmt(rq)+" ");
-    l.replQty=rq;
-  }else if(it&&q>avail(it)+l.qty+1e-9){toast("Больше, чем осталось по проекту ("+fmt(avail(it)+l.qty)+")");return}
-  l.qty=q;save();closeSheet();render();toast("Количество изменено");
+    l.replQty=Math.round((rq-br)*1000)/1000;
+  }else if(it&&q>bs+avail(it)+l.qty+1e-9){toast("Больше, чем осталось по проекту ("+fmt(bs+avail(it)+l.qty)+")");return}
+  l.qty=Math.round((q-bs)*1000)/1000;save();closeSheet();render();toast("Количество изменено");
 }
 function addOut(){
   var nm=$("oName").value.trim(),un=$("oUnit").value.trim(),q=parseFloat(String($("oQty").value).replace(",","."))||0;
