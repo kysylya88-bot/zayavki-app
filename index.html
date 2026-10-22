@@ -377,7 +377,19 @@ $("fSnap").addEventListener("change",function(){
 });
 window.addEventListener("online",hdr);window.addEventListener("offline",hdr);
 if("serviceWorker" in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register("sw.js").catch(function(){})}
-load();render();
+function hsh(t){var h=0,i;for(i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return t.length+":"+h}
+function autoSync(){
+  if(!/^https?:/.test(location.protocol)||!navigator.onLine||!window.fetch)return;
+  fetch("snapshot.json?t="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){
+    t=t.replace(/^\ufeff/,"");var o=JSON.parse(t);if(!o.items||!o.v)throw 0;
+    var sig=hsh(t);
+    if(S.snap&&S.snap.sig===sig)return;
+    if(S.snap&&S.snap.date&&o.date&&o.date<S.snap.date)return;
+    o.ts=o.date;o.sig=sig;S.snap=o;save();render();toast("Реестр обновлён: снимок от "+ru(o.date));
+  }).catch(function(){});
+}
+load();render();autoSync();
+document.addEventListener("visibilitychange",function(){if(!document.hidden)autoSync()});
 </script>
 </body>
 </html>
