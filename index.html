@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2e2a29">
+<link rel="manifest" href="manifest.json">
+<title>Заявки на объекте</title>
+<style>
+:root{--bg:#f4f3f0;--card:#fff;--ink:#2e2a29;--mut:#6f6a66;--line:#e2dfda;--acc:#d6b827;--accd:#b89b12;--ok:#2e7d32;--warn:#e65100;--bad:#c62828;--blue:#1f4e8c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:84px}
+header{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;padding-top:max(10px,env(safe-area-inset-top))}
+header .t{flex:1;min-width:0}
+header .t b{display:block;font-size:17px}
+header .t small{color:#cfc9c4;font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header button{background:none;border:0;color:#fff;font-size:22px;padding:6px 8px}
+.pill{font-size:11px;padding:2px 8px;border-radius:10px;background:#444;color:#fff}
+.pill.off{background:#7a5a00}
+.wrap{padding:12px 12px 0;max-width:720px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.btn{display:inline-block;border:0;border-radius:10px;padding:12px 16px;font-size:16px;font-weight:600;background:var(--acc);color:var(--ink)}
+.btn.sec{background:#ece9e4}.btn.big{width:100%}.btn.bad{background:#f8d7d3;color:var(--bad)}
+.btn:disabled{opacity:.45}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}
+.chip{flex:none;border:1px solid var(--line);background:#fff;border-radius:18px;padding:7px 14px;font-size:15px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+input,select,textarea{width:100%;font:inherit;font-size:16px;border:1px solid #cfcac4;border-radius:10px;padding:11px 12px;background:#fff;color:var(--ink)}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+.item{display:flex;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);background:#fff}
+.item:first-child{border-radius:12px 12px 0 0}.item:last-child{border-radius:0 0 12px 12px;border-bottom:0}
+.list{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:10px}
+.item .c{width:64px;flex:none;font-size:12px;color:var(--mut);padding-top:2px}
+.item .n{flex:1;min-width:0}
+.item .n div{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:15px}
+.item .n small{color:var(--mut);font-size:13px}
+.item .r{flex:none;text-align:right;font-size:13px;min-width:70px}
+.item .r b{font-size:16px;display:block}
+.st-ok{color:var(--ok)}.st-warn{color:var(--warn)}.st-bad{color:var(--bad)}
+.badge{display:inline-block;background:var(--blue);color:#fff;border-radius:9px;font-size:12px;padding:1px 7px;margin-left:4px}
+.fab{position:fixed;left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));z-index:6;display:flex;gap:10px;max-width:696px;margin:0 auto}
+.fab .btn{flex:1;box-shadow:0 3px 10px rgba(0,0,0,.25)}
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:none}
+.sheet{position:fixed;left:0;right:0;bottom:0;max-height:92vh;overflow:auto;background:#fff;border-radius:18px 18px 0 0;padding:16px 14px max(18px,env(safe-area-inset-bottom));z-index:21;display:none;max-width:720px;margin:0 auto}
+.show{display:block}
+.row{display:flex;gap:10px}.row>*{flex:1}
+.step{display:flex;gap:8px;align-items:center}.step button{width:48px;height:48px;border-radius:10px;border:1px solid #cfcac4;background:#fff;font-size:24px}
+.warnbox{background:#fff4e5;border:1px solid #ffcc80;border-radius:10px;padding:9px 11px;font-size:14px;margin-top:8px}
+.badbox{background:#fdecea;border:1px solid #f5a8a0;color:var(--bad)}
+.mut{color:var(--mut);font-size:13px}
+h2{font-size:18px;margin:6px 0 10px}
+.empty{padding:26px 12px;text-align:center;color:var(--mut)}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:#222;color:#fff;border-radius:20px;padding:9px 16px;font-size:14px;z-index:40;display:none;max-width:90%}
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.x{border:0;background:none;color:var(--bad);font-size:20px;padding:4px 8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="t"><b id="hTitle">Заявки на объекте</b><small id="hSub">снимок реестра не загружен</small></div>
+  <span class="pill" id="net">онлайн</span>
+  <button id="bMenu" aria-label="Меню">☰</button>
+</header>
+<div class="wrap" id="app"></div>
+<div class="fab" id="fab"></div>
+<div class="sheet-bg" id="bg"></div>
+<div class="sheet" id="sheet"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="fSnap" accept=".json,application/json" hidden>
+
+<script>
+"use strict";
+var KEY="bitreq1";
+var S={snap:null,draft:{no:null,lines:[],due:"",author:""},reqs:[],view:"cat",sect:null,q:"",set:{author:"",days:7}};
+function load(){try{var j=localStorage.getItem(KEY);if(j){var o=JSON.parse(j);for(var k in o)S[k]=o[k];}}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify({snap:S.snap,draft:S.draft,reqs:S.reqs,set:S.set}));}catch(e){toast("Не удалось сохранить данные на телефоне");}}
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function fmt(n){n=Math.round(n*100)/100;return String(n).replace(".",",")}
+function iso(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
+function ru(s){if(!s)return"";var p=s.slice(0,10).split("-");return p[2]+"."+p[1]+"."+p[0]}
+function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return iso(d)}
+function toast(m){var t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(function(){t.style.display="none"},2600)}
+function clean(s){return String(s==null?"":s).replace(/[;\r\n\t]+/g," ").trim()}
+
+/* ---------- расчёт остатков ---------- */
+function snapTs(){return S.snap?S.snap.date:""}
+function pendingQty(code){ // что уже набрано на телефоне и ещё не в снимке
+  var t=0,i,L;
+  S.draft.lines.forEach(function(l){if(l.code===code)t+=l.qty; if(l.replCode===code)t+=l.replQty});
+  S.reqs.forEach(function(r){ if(r.ts>snapTs()) r.lines.forEach(function(l){if(l.code===code)t+=l.qty; if(l.replCode===code)t+=l.replQty}) });
+  return t;
+}
+function avail(it){return Math.max(0,Math.round((it[7]-pendingQty(it[1]))*1000)/1000)}
+function find(code){if(!S.snap)return null;if(!S.snap._idx){S.snap._idx={};S.snap.items.forEach(function(it){S.snap._idx[it[1]]=it})}return S.snap._idx[code]}
+function nextNo(){var n=S.snap?S.snap.nextReq:1;S.reqs.forEach(function(r){if(r.no>=n)n=r.no+1});return n}
+
+/* ---------- экраны ---------- */
+function render(){
+  var a=$("app"),f=$("fab");
+  if(!S.snap){a.innerHTML='<div class="card"><h2>Нужен снимок реестра</h2><p>Файл <b>Снимок_реестра_….json</b> делает снабжение кнопкой в Excel и присылает вам (Telegram, почта, Bitrix). Откройте его здесь — дальше приложение работает без интернета.</p><button class="btn big" id="bLoad">Выбрать файл снимка</button></div>';f.innerHTML="";bind();hdr();return}
+  hdr();
+  if(S.view==="cat")renderCat(a,f);else if(S.view==="draft")renderDraft(a,f);else if(S.view==="hist")renderHist(a,f);
+  bind();
+}
+function hdr(){
+  $("hTitle").textContent=S.snap?(S.snap.label||"Заявки"):"Заявки на объекте";
+  $("hSub").textContent=S.snap?("Снимок от "+ru(S.snap.date)+" · заявка №"+(S.draft.no||nextNo())):"снимок реестра не загружен";
+  var n=$("net");n.textContent=navigator.onLine?"онлайн":"офлайн";n.className="pill"+(navigator.onLine?"":" off");
+}
+function renderCat(a,f){
+  var sects=[];S.snap.items.forEach(function(it){if(sects.indexOf(it[0])<0)sects.push(it[0])});
+  if(!S.sect||sects.indexOf(S.sect)<0)S.sect=sects[0];
+  var q=S.q.toLowerCase().trim(),h='<div class="chips">';
+  sects.forEach(function(s){h+='<button class="chip'+(S.sect===s?" on":"")+'" data-sect="'+esc(s)+'">'+esc(s)+'</button>'});
+  h+='</div><input id="q" type="search" placeholder="Поиск по коду или названию" value="'+esc(S.q)+'" style="margin-bottom:10px">';
+  var items=S.snap.items.filter(function(it){return q?(it[1]+" "+it[3]).toLowerCase().indexOf(q)>=0:it[0]===S.sect});
+  h+='<div class="list">';
+  if(!items.length)h+='<div class="empty">Ничего не найдено</div>';
+  items.slice(0,200).forEach(function(it){
+    var av=avail(it),inD=S.draft.lines.filter(function(l){return l.code===it[1]}).reduce(function(s,l){return s+l.qty},0);
+    var cls=av<=0?"st-bad":(av<it[5]?"st-warn":"st-ok");
+    h+='<div class="item" data-code="'+esc(it[1])+'"><div class="c">'+esc(it[1])+'</div><div class="n"><div>'+esc(it[3])+'</div><small>'+esc(it[8]||"")+(inD?'<span class="badge">в заявке '+fmt(inD)+'</span>':'')+'</small></div><div class="r '+cls+'"><b>'+fmt(av)+'</b>'+esc(it[4])+'<br><span class="mut">из '+fmt(it[5])+'</span></div></div>';
+  });
+  if(items.length>200)h+='<div class="empty">Показаны первые 200 — уточните поиск</div>';
+  h+='</div><button class="btn sec big" id="bOut">+ Позиция вне проекта</button>';
+  a.innerHTML='<div class="wrap" style="padding:0">'+h+'</div>';
+  var n=S.draft.lines.length;
+  f.innerHTML='<button class="btn big" id="bDraft">Заявка №'+(S.draft.no||nextNo())+' · '+n+' поз. →</button>';
+}
+function lineTxt(l){
+  if(l.code)return l.code+" | "+l.name;
+  return l.newName+(l.replCode?" (замена "+l.replCode+")":" (вне проекта)");
+}
+function renderDraft(a,f){
+  var d=S.draft,h='<h2>Заявка №'+(d.no||nextNo())+'</h2>';
+  h+='<div class="card"><div class="row"><div><label>Номер заявки</label><input id="dNo" type="number" inputmode="numeric" value="'+(d.no||nextNo())+'"></div><div><label>Нужно к дате</label><input id="dDue" type="date" value="'+esc(d.due||addDays(S.set.days))+'"></div></div><label>Кто составил</label><input id="dAuthor" value="'+esc(d.author||S.set.author)+'" placeholder="Фамилия, должность"></div>';
+  if(!d.lines.length)h+='<div class="empty">В заявке пока нет позиций.<br>Вернитесь в каталог и нажмите на позицию.</div>';
+  else{h+='<div class="card"><table class="t">';d.lines.forEach(function(l,i){
+    h+='<tr><td><b>'+(i+1)+'.</b></td><td>'+esc(lineTxt(l))+(l.note?'<br><span class="mut">'+esc(l.note)+'</span>':'')+(l.analog?'<br><span class="mut">допускается аналог</span>':'')+'</td><td style="text-align:right;white-space:nowrap"><b>'+fmt(l.qty)+'</b> '+esc(l.unit)+'</td><td><button class="x" data-del="'+i+'">✕</button></td></tr>'});
+    h+='</table></div>';}
+  a.innerHTML=h;
+  f.innerHTML='<button class="btn sec" id="bBack">← Каталог</button>'+(d.lines.length?'<button class="btn" id="bFinish">Сформировать</button>':'');
+}
+function renderHist(a,f){
+  var h='<h2>Сформированные заявки</h2>';
+  if(!S.reqs.length)h+='<div class="empty">Пока ничего нет</div>';
+  S.reqs.slice().reverse().forEach(function(r){
+    h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+(r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>')+'</div>';
+  });
+  a.innerHTML=h;f.innerHTML='<button class="btn sec big" id="bBack">← Каталог</button>';
+}
+
+/* ---------- окна ---------- */
+function openSheet(h){$("sheet").innerHTML=h;$("bg").classList.add("show");$("sheet").classList.add("show");}
+function closeSheet(){$("bg").classList.remove("show");$("sheet").classList.remove("show");}
+function itemSheet(code){
+  var it=find(code);if(!it)return;var av=avail(it);
+  var h='<b>'+esc(it[1])+'</b> · '+esc(it[0])+'<div style="margin:4px 0 10px">'+esc(it[3])+'</div>'+
+   '<div class="mut">По проекту: '+fmt(it[5])+' '+esc(it[4])+' · заказано: '+fmt(it[6])+' · <b>можно заказать: '+fmt(av)+'</b></div>'+
+   '<label>Количество, '+esc(it[4])+'</label><div class="step"><button data-st="-1">−</button><input id="iQty" type="number" inputmode="decimal" step="any" value="'+av+'"><button data-st="1">+</button></div><div id="iWarn"></div>'+
+   '<label>Примечание</label><input id="iNote" placeholder="например: на 2 этаж">'+
+   '<label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:16px;margin-top:12px"><input id="iAn" type="checkbox" style="width:22px;height:22px"> Допускается аналог</label>'+
+   '<div id="iRepl" style="display:none"><div class="card" style="margin-top:10px;background:#faf8f2"><b>Замена по проекту</b><div class="mut">Вместо этой позиции заказывается другой материал</div>'+
+   '<label>Что заказываем вместо (название)</label><input id="rName"><div class="row"><div><label>Ед. изм. нового</label><input id="rUnit" value="'+esc(it[4])+'"></div><div><label>Кол-во нового</label><input id="rQty" type="number" inputmode="decimal" step="any"></div></div>'+
+   '<label>Сколько по проекту заменяем, '+esc(it[4])+'</label><input id="rRep" type="number" inputmode="decimal" step="any" value="'+av+'"></div></div>'+
+   '<div class="row" style="margin-top:14px"><button class="btn sec" id="sRepl">Заменить</button><button class="btn" id="sAdd" data-code="'+esc(code)+'">В заявку</button></div><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>';
+  openSheet(h);checkQty(it);
+}
+function checkQty(it){
+  var q=parseFloat(String($("iQty").value).replace(",","."))||0,av=avail(it),w=$("iWarn");
+  if($("iRepl").style.display==="block"){w.innerHTML="";return}
+  if(q>av+1e-9){w.innerHTML='<div class="warnbox badbox">Больше, чем можно заказать ('+fmt(av)+'). Уменьшите количество или попросите РП поправить проект.</div>';$("sAdd").disabled=true}
+  else if(q<=0){w.innerHTML="";$("sAdd").disabled=true}
+  else{w.innerHTML="";$("sAdd").disabled=false}
+}
+function outSheet(){
+  var sects=[];S.snap.items.forEach(function(it){if(sects.indexOf(it[0])<0)sects.push(it[0])});if(sects.indexOf("Прочее")<0)sects.push("Прочее");
+  var h='<b>Позиция вне проекта</b><div class="mut">Согласуется РП в реестре</div>'+
+  '<label>Название материала</label><input id="oName"><div class="row"><div><label>Раздел</label><select id="oSect">'+sects.map(function(s){return'<option'+(s==="Прочее"?" selected":"")+'>'+esc(s)+'</option>'}).join("")+'</select></div><div><label>Ед. изм.</label><input id="oUnit" placeholder="шт, м, м²"></div></div>'+
+  '<label>Количество</label><input id="oQty" type="number" inputmode="decimal" step="any"><label>Причина / примечание</label><input id="oNote">'+
+  '<div class="row" style="margin-top:14px"><button class="btn sec" id="sClose">Отмена</button><button class="btn" id="oAdd">В заявку</button></div>';
+  openSheet(h);
+}
+
+/* ---------- выгрузка ---------- */
+function crc32(b){var t=crc32.t;if(!t){t=crc32.t=[];for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}}var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=t[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+function u8(s){return new TextEncoder().encode(s)}
+function zip(files){var out=[],cd=[],off=0;
+  files.forEach(function(f){var nm=u8(f.n),d=f.d,crc=crc32(d);
+    var h=new Uint8Array(30+nm.length);var v=new DataView(h.buffer);
+    v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint16(6,0x0800,true);v.setUint16(8,0,true);v.setUint16(10,0,true);v.setUint16(12,0x21,true);v.setUint32(14,crc,true);v.setUint32(18,d.length,true);v.setUint32(22,d.length,true);v.setUint16(26,nm.length,true);v.setUint16(28,0,true);h.set(nm,30);
+    out.push(h,d);
+    var c=new Uint8Array(46+nm.length);var w=new DataView(c.buffer);
+    w.setUint32(0,0x02014b50,true);w.setUint16(4,20,true);w.setUint16(6,20,true);w.setUint16(8,0x0800,true);w.setUint16(12,0,true);w.setUint16(14,0x21,true);w.setUint32(16,crc,true);w.setUint32(20,d.length,true);w.setUint32(24,d.length,true);w.setUint16(28,nm.length,true);w.setUint32(42,off,true);c.set(nm,46);cd.push(c);
+    off+=h.length+d.length});
+  var cs=0;cd.forEach(function(c){cs+=c.length});
+  var e=new Uint8Array(22);var ev=new DataView(e.buffer);ev.setUint32(0,0x06054b50,true);ev.setUint16(8,files.length,true);ev.setUint16(10,files.length,true);ev.setUint32(12,cs,true);ev.setUint32(16,off,true);
+  return new Blob(out.concat(cd,[e]),{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});}
+function xe(s){return String(s==null?"":s).replace(/[&<>]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;"}[c]})}
+function colL(i){return String.fromCharCode(65+i)}
+function xlsx(rows,widths){
+  var sd="";rows.forEach(function(r,ri){sd+='<row r="'+(ri+1)+'">';r.forEach(function(c,ci){if(c==null||c==="")return;var ref=colL(ci)+(ri+1),st=c&&c.s?c.s:0,v=c&&c.v!==undefined?c.v:c;
+      if(typeof v==="number")sd+='<c r="'+ref+'" s="'+st+'"><v>'+v+'</v></c>';else sd+='<c r="'+ref+'" s="'+st+'" t="inlineStr"><is><t xml:space="preserve">'+xe(v)+'</t></is></c>'});sd+='</row>'});
+  var cols='<cols>'+widths.map(function(w,i){return'<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>'}).join("")+'</cols>';
+  var sheet='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+cols+'<sheetData>'+sd+'</sheetData></worksheet>';
+  var styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="14"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD6B827"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="4"><xf/><xf fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1"><alignment wrapText="1" vertical="center" horizontal="center"/></xf><xf borderId="1" applyBorder="1"><alignment wrapText="1" vertical="top"/></xf><xf fontId="2" applyFont="1"/></cellXfs></styleSheet>';
+  return zip([
+   {n:"[Content_Types].xml",d:u8('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>')},
+   {n:"_rels/.rels",d:u8('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')},
+   {n:"xl/workbook.xml",d:u8('<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Заявка" sheetId="1" r:id="rId1"/></sheets></workbook>')},
+   {n:"xl/_rels/workbook.xml.rels",d:u8('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')},
+   {n:"xl/styles.xml",d:u8(styles)},{n:"xl/worksheets/sheet1.xml",d:u8(sheet)}]);
+}
+function reqXlsx(r){
+  var rows=[[{v:"Заявка №"+r.no+" на поставку материалов и оборудования",s:3}],["Объект: "+(S.snap.object||S.snap.label)],["Дата: "+ru(r.date)+"   Составил: "+(r.author||"")],["Версия проекта: "+(r.ver||"")],[],
+   [{v:"№",s:1},{v:"Раздел",s:1},{v:"Код",s:1},{v:"Наименование",s:1},{v:"Ед. изм.",s:1},{v:"Кол-во",s:1},{v:"Нужно к",s:1},{v:"Примечание",s:1}]];
+  r.lines.forEach(function(l,i){var nm=l.code?l.name:(l.newName+(l.replCode?" (вместо "+l.replCode+")":" (вне проекта)"));
+    rows.push([{v:i+1,s:2},{v:l.sect,s:2},{v:l.code||"ВНЕ-СМЕТЫ",s:2},{v:nm,s:2},{v:l.unit,s:2},{v:l.qty,s:2},{v:ru(r.due),s:2},{v:(l.analog?"Допускается аналог. ":"")+(l.note||""),s:2}])});
+  return xlsx(rows,[5,9,12,60,9,10,12,36]);
+}
+function reqCsv(r){
+  var o=["BITREQ1;"+clean(S.snap.label)+";"+r.date+";"+clean(r.author)];
+  r.lines.forEach(function(l){o.push(["L",r.no,r.date,l.sect,l.code||"",clean(l.name||""),clean(l.newName||""),l.qty,l.analog?1:0,clean(l.note||""),l.replCode?clean(l.replCode+" | "+(l.replName||"")):"",r.due,clean(l.unit||""),l.replQty||0,clean(r.author)].join(";"))});
+  return new Blob(["﻿"+o.join("\r\n")],{type:"text/csv"});
+}
+function reqText(r){
+  var t="Заявка №"+r.no+" — "+(S.snap.label||"")+"\nДата: "+ru(r.date)+" · нужно к "+ru(r.due)+"\nСоставил: "+(r.author||"—")+"\nВерсия проекта: "+(r.ver||"—")+"\n\n";
+  r.lines.forEach(function(l,i){t+=(i+1)+". "+(l.code?l.code+" | "+l.name:l.newName+(l.replCode?" (замена "+l.replCode+")":" (вне проекта)"))+" — "+fmt(l.qty)+" "+l.unit+(l.analog?" [допускается аналог]":"")+(l.note?" · "+l.note:"")+"\n"});
+  return t;
+}
+function finish(){
+  var d=S.draft;if(!d.lines.length)return;
+  var no=parseInt($("dNo").value,10)||nextNo(),due=$("dDue").value||addDays(S.set.days),au=$("dAuthor").value.trim();
+  if(S.reqs.some(function(x){return x.no===no})){toast("Заявка с номером "+no+" уже есть в истории — смените номер");return}
+  var verS={};d.lines.forEach(function(l){verS[l.sect]=1});
+  var ver=Object.keys(verS).map(function(s){return s+": "+((S.snap.ver&&S.snap.ver[s])||"—")}).join("; ");
+  var r={no:no,date:iso(new Date()),ts:new Date().toISOString().slice(0,16).replace("T"," "),due:due,author:au,ver:ver,lines:d.lines.slice(),sent:false};
+  S.reqs.push(r);S.set.author=au;S.draft={no:null,lines:[],due:"",author:""};save();
+  shareSheet(r);
+}
+function shareSheet(r){
+  var h='<b>Заявка №'+r.no+' готова</b><div class="mut" style="margin:4px 0 12px">'+r.lines.length+' поз. Отправьте её в Bitrix и передайте снабжению файл для реестра.</div>'+
+   '<button class="btn big" id="sShare" data-no="'+r.no+'">Отправить (Excel + текст)…</button>'+
+   '<button class="btn sec big" id="sCopy" data-no="'+r.no+'" style="margin-top:8px">Скопировать текст для Bitrix</button>'+
+   '<button class="btn sec big" id="sXlsx" data-no="'+r.no+'" style="margin-top:8px">Сохранить файл Excel</button>'+
+   '<button class="btn sec big" id="sCsv" data-no="'+r.no+'" style="margin-top:8px">Сохранить файл для реестра (csv)</button>'+
+   '<label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:16px;margin-top:14px"><input id="sSent" type="checkbox" style="width:22px;height:22px"'+(r.sent?" checked":"")+' data-no="'+r.no+'"> Отправлено в Bitrix</label>'+
+   '<button class="btn sec big" id="sClose2" style="margin-top:10px">Готово</button>';
+  openSheet(h);
+}
+function getReq(n){return S.reqs.filter(function(r){return r.no==n})[0]}
+function fname(r,ext){return "Заявка_№"+r.no+"_"+r.date.split("-").reverse().join(".")+"."+ext}
+function dl(blob,name){var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},4000)}
+function doShare(r){
+  var x=new File([reqXlsx(r)],fname(r,"xlsx"),{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+  var c=new File([reqCsv(r)],fname(r,"csv"),{type:"text/csv"});
+  var data={files:[x,c],title:"Заявка №"+r.no,text:reqText(r)};
+  if(navigator.canShare&&navigator.canShare(data)){navigator.share(data).catch(function(e){if(e&&e.name!=="AbortError")toast("Не удалось поделиться: "+e.message)})}
+  else{toast("Этот браузер не умеет делиться файлами — сохраняю файлы");dl(x,x.name);setTimeout(function(){dl(c,c.name)},700)}
+}
+
+/* ---------- события ---------- */
+function bind(){}
+document.addEventListener("click",function(e){
+  var t=e.target,b=t.closest("button,.item,.card[data-req]");if(!b)return;
+  var id=b.id;
+  if(b.dataset.sect!==undefined){S.sect=b.dataset.sect;S.q="";render();return}
+  if(b.classList.contains("item")){itemSheet(b.dataset.code);return}
+  if(b.dataset.req){var r=getReq(b.dataset.req);if(r)shareSheet(r);return}
+  if(b.dataset.del!==undefined){S.draft.lines.splice(+b.dataset.del,1);save();render();return}
+  if(b.dataset.st){var q=$("iQty"),v=parseFloat(String(q.value).replace(",","."))||0;v=Math.max(0,Math.round((v+(+b.dataset.st))*1000)/1000);q.value=v;q.dispatchEvent(new Event("input"));return}
+  switch(id){
+   case"bLoad":$("fSnap").click();break;
+   case"bMenu":menu();break;
+   case"bDraft":keepDraftFields();S.view="draft";render();window.scrollTo(0,0);break;
+   case"bBack":keepDraftFields();S.view="cat";render();break;
+   case"bFinish":finish();break;
+   case"bOut":outSheet();break;
+   case"sClose":case"sClose2":closeSheet();render();break;
+   case"sRepl":$("iRepl").style.display=$("iRepl").style.display==="block"?"none":"block";$("sRepl").textContent=$("iRepl").style.display==="block"?"Без замены":"Заменить";checkQty(find(document.querySelector("#sAdd").dataset.code));break;
+   case"sAdd":addItem(b.dataset.code);break;
+   case"oAdd":addOut();break;
+   case"sShare":doShare(getReq(b.dataset.no));break;
+   case"sCopy":var r1=getReq(b.dataset.no);(navigator.clipboard?navigator.clipboard.writeText(reqText(r1)):Promise.reject()).then(function(){toast("Текст скопирован — вставьте в Bitrix")},function(){toast("Не удалось скопировать")});break;
+   case"sXlsx":var r2=getReq(b.dataset.no);dl(reqXlsx(r2),fname(r2,"xlsx"));break;
+   case"sCsv":var r3=getReq(b.dataset.no);dl(reqCsv(r3),fname(r3,"csv"));break;
+   case"mLoad":closeSheet();$("fSnap").click();break;
+   case"mHist":closeSheet();S.view="hist";render();break;
+   case"mClear":if(confirm("Удалить неотправленный черновик заявки?")){S.draft={no:null,lines:[],due:"",author:""};save();closeSheet();render()}break;
+  }
+});
+document.addEventListener("input",function(e){
+  var t=e.target;
+  if(t.id==="q"){S.q=t.value;var p=t.selectionStart;render();var n=$("q");n.focus();try{n.setSelectionRange(p,p)}catch(x){}}
+  else if(t.id==="iQty"||t.id==="rRep"||t.id==="rQty"){var it=find(document.querySelector("#sAdd").dataset.code);if(it)checkQty(it)}
+});
+document.addEventListener("change",function(e){if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;save()}}});
+$("bg").addEventListener("click",function(){closeSheet();render()});
+function keepDraftFields(){var n=$("dNo");if(n){S.draft.no=parseInt(n.value,10)||null;S.draft.due=$("dDue").value;S.draft.author=$("dAuthor").value;save()}}
+function menu(){openSheet('<b>Меню</b><button class="btn sec big" id="mLoad" style="margin-top:12px">Загрузить новый снимок реестра</button><button class="btn sec big" id="mHist" style="margin-top:8px">Сформированные заявки</button><button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
+function addItem(code){
+  var it=find(code),q=parseFloat(String($("iQty").value).replace(",","."))||0,note=$("iNote").value.trim(),an=$("iAn").checked,repl=$("iRepl").style.display==="block";
+  if(repl){
+    var nm=$("rName").value.trim(),un=$("rUnit").value.trim(),nq=parseFloat(String($("rQty").value).replace(",","."))||0,rq=parseFloat(String($("rRep").value).replace(",","."))||0;
+    if(!nm||!un||nq<=0||rq<=0){toast("Заполните название, единицу, количество нового и заменяемого");return}
+    if(rq>avail(it)+1e-9){toast("Заменяется больше, чем осталось по проекту ("+fmt(avail(it))+")");return}
+    S.draft.lines.push({sect:it[0],code:"",name:"",newName:nm,unit:un,qty:nq,analog:an,note:("ЗАМЕНА "+code+" (вместо "+fmt(rq)+" "+it[4]+")"+(note?"; "+note:"")),replCode:code,replName:it[3],replQty:rq});
+  }else{
+    if(q<=0||q>avail(it)+1e-9){toast("Проверьте количество");return}
+    var ex=S.draft.lines.filter(function(l){return l.code===code&&!l.replCode})[0];
+    if(ex){ex.qty=Math.round((ex.qty+q)*1000)/1000;if(note)ex.note=(ex.note?ex.note+"; ":"")+note;if(an)ex.analog=true}
+    else S.draft.lines.push({sect:it[0],code:code,name:it[3],newName:"",unit:it[4],qty:q,analog:an,note:note,replCode:"",replName:"",replQty:0});
+  }
+  save();closeSheet();render();toast("Добавлено в заявку №"+(S.draft.no||nextNo()));
+}
+function addOut(){
+  var nm=$("oName").value.trim(),un=$("oUnit").value.trim(),q=parseFloat(String($("oQty").value).replace(",","."))||0;
+  if(!nm||!un||q<=0){toast("Заполните название, единицу и количество");return}
+  S.draft.lines.push({sect:$("oSect").value,code:"",name:"",newName:nm,unit:un,qty:q,analog:false,note:$("oNote").value.trim(),replCode:"",replName:"",replQty:0});
+  save();closeSheet();render();toast("Добавлено (вне проекта)");
+}
+$("fSnap").addEventListener("change",function(){
+  var f=this.files[0];if(!f)return;
+  var rd=new FileReader();rd.onload=function(){
+    try{var t=String(rd.result).replace(/^﻿/,""),o=JSON.parse(t);if(!o.items||!o.v)throw 0;
+      if(S.draft.lines.length&&!confirm("В черновике есть позиции. После загрузки нового снимка остатки пересчитаются. Продолжить?"))return;
+      o.ts=o.date;S.snap=o;save();S.view="cat";S.sect=null;render();toast("Снимок загружен: "+o.items.length+" позиций");
+    }catch(e){toast("Это не файл снимка реестра")}
+  };rd.readAsText(f,"utf-8");this.value="";
+});
+window.addEventListener("online",hdr);window.addEventListener("offline",hdr);
+if("serviceWorker" in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register("sw.js").catch(function(){})}
+load();render();
+</script>
+</body>
+</html>
