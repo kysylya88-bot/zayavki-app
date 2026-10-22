@@ -156,6 +156,24 @@ function renderHist(a,f){
 /* ---------- окна ---------- */
 function openSheet(h){$("sheet").innerHTML=h;$("bg").classList.add("show");$("sheet").classList.add("show");}
 function closeSheet(){$("bg").classList.remove("show");$("sheet").classList.remove("show");}
+function openReqs(){return S.reqs.filter(function(r){return !r.sent&&!r.corr})}
+function targetSel(){
+  if(S.draft.corrOf)return "";
+  var o=openReqs();if(!o.length)return "";
+  var cur=S.target&&getReq(S.target)&&!getReq(S.target).sent?String(S.target):"";
+  return '<label>Добавить в</label><select id="tSel"><option value=""'+(cur===""?" selected":"")+'>Новая заявка №'+(S.draft.no||nextNo())+'</option>'+
+    o.map(function(r){return '<option value="'+r.no+'"'+(String(r.no)===cur?" selected":"")+'>Заявка №'+r.no+' · '+r.lines.length+' поз. (не отправлена)</option>'}).join("")+'</select>';
+}
+function targetLines(){
+  var e=$("tSel"),v=e?e.value:"";S.target=v||null;
+  var r=v?getReq(v):null;
+  if(r&&!r.sent)return {lines:r.lines,req:r};
+  S.target=null;return {lines:S.draft.lines,req:null};
+}
+function afterAdd(t){
+  if(t.req){var vs={};t.req.lines.forEach(function(l){vs[l.sect]=1});t.req.ver=Object.keys(vs).map(function(x){return x+": "+((S.snap.ver&&S.snap.ver[x])||"—")}).join("; ");}
+  save();closeSheet();render();toast("Добавлено в заявку №"+(t.req?t.req.no:(S.draft.no||nextNo())));
+}
 function itemSheet(code){
   var it=find(code);if(!it)return;var av=avail(it);
   var h='<b>'+esc(it[1])+'</b> · '+esc(it[0])+'<div style="margin:4px 0 10px">'+esc(it[3])+'</div>'+
@@ -166,7 +184,7 @@ function itemSheet(code){
    '<div id="iRepl" style="display:none"><div class="card" style="margin-top:10px;background:#faf8f2"><b>Замена по проекту</b><div class="mut">Вместо этой позиции заказывается другой материал</div>'+
    '<label>Что заказываем вместо (название)</label><input id="rName"><div class="row"><div><label>Ед. изм. нового</label><input id="rUnit" value="'+esc(it[4])+'"></div><div><label>Кол-во нового</label><input id="rQty" type="number" inputmode="decimal" step="any"></div></div>'+
    '<label>Сколько по проекту заменяем, '+esc(it[4])+'</label><input id="rRep" type="number" inputmode="decimal" step="any" value="'+av+'"></div></div>'+
-   '<div class="row" style="margin-top:14px"><button class="btn sec" id="sRepl">Заменить</button><button class="btn" id="sAdd" data-code="'+esc(code)+'">В заявку</button></div><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>';
+   targetSel()+'<div class="row" style="margin-top:14px"><button class="btn sec" id="sRepl">Заменить</button><button class="btn" id="sAdd" data-code="'+esc(code)+'">В заявку</button></div><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>';
   openSheet(h);checkQty(it);
 }
 function checkQty(it){
@@ -180,7 +198,7 @@ function outSheet(){
   var sects=[];S.snap.items.forEach(function(it){if(sects.indexOf(it[0])<0)sects.push(it[0])});if(sects.indexOf("Прочее")<0)sects.push("Прочее");
   var h='<b>Позиция вне проекта</b><div class="mut">Согласуется РП в реестре</div>'+
   '<label>Название материала</label><input id="oName"><div class="row"><div><label>Раздел</label><select id="oSect">'+sects.map(function(s){return'<option'+(s==="Прочее"?" selected":"")+'>'+esc(s)+'</option>'}).join("")+'</select></div><div><label>Ед. изм.</label><input id="oUnit" placeholder="шт, м, м²"></div></div>'+
-  '<label>Количество</label><input id="oQty" type="number" inputmode="decimal" step="any"><label>Причина / примечание</label><input id="oNote">'+
+  '<label>Количество</label><input id="oQty" type="number" inputmode="decimal" step="any"><label>Причина / примечание</label><input id="oNote">'+targetSel()+
   '<div class="row" style="margin-top:14px"><button class="btn sec" id="sClose">Отмена</button><button class="btn" id="oAdd">В заявку</button></div>';
   openSheet(h);
 }
@@ -312,19 +330,19 @@ $("bg").addEventListener("click",function(){closeSheet();render()});
 function keepDraftFields(){var n=$("dNo");if(n){S.draft.no=parseInt(n.value,10)||null;S.draft.due=$("dDue").value;S.draft.author=$("dAuthor").value;save()}}
 function menu(){openSheet('<b>Меню</b><button class="btn sec big" id="mLoad" style="margin-top:12px">Загрузить новый снимок реестра</button><button class="btn sec big" id="mHist" style="margin-top:8px">Сформированные заявки</button><button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
 function addItem(code){
-  var it=find(code),q=parseFloat(String($("iQty").value).replace(",","."))||0,note=$("iNote").value.trim(),an=$("iAn").checked,repl=$("iRepl").style.display==="block";
+  var T=targetLines(),L=T.lines,it=find(code),q=parseFloat(String($("iQty").value).replace(",","."))||0,note=$("iNote").value.trim(),an=$("iAn").checked,repl=$("iRepl").style.display==="block";
   if(repl){
     var nm=$("rName").value.trim(),un=$("rUnit").value.trim(),nq=parseFloat(String($("rQty").value).replace(",","."))||0,rq=parseFloat(String($("rRep").value).replace(",","."))||0;
     if(!nm||!un||nq<=0||rq<=0){toast("Заполните название, единицу, количество нового и заменяемого");return}
     if(rq>avail(it)+1e-9){toast("Заменяется больше, чем осталось по проекту ("+fmt(avail(it))+")");return}
-    S.draft.lines.push({sect:it[0],code:"",name:"",newName:nm,unit:un,qty:nq,analog:an,note:("ЗАМЕНА "+code+" (вместо "+fmt(rq)+" "+it[4]+")"+(note?"; "+note:"")),replCode:code,replName:it[3],replQty:rq});
+    L.push({sect:it[0],code:"",name:"",newName:nm,unit:un,qty:nq,analog:an,note:("ЗАМЕНА "+code+" (вместо "+fmt(rq)+" "+it[4]+")"+(note?"; "+note:"")),replCode:code,replName:it[3],replQty:rq});
   }else{
     if(q<=0||q>avail(it)+1e-9){toast("Проверьте количество");return}
-    var ex=S.draft.lines.filter(function(l){return l.code===code&&!l.replCode})[0];
+    var ex=L.filter(function(l){return l.code===code&&!l.replCode})[0];
     if(ex){ex.qty=Math.round((ex.qty+q)*1000)/1000;if(note)ex.note=(ex.note?ex.note+"; ":"")+note;if(an)ex.analog=true}
-    else S.draft.lines.push({sect:it[0],code:code,name:it[3],newName:"",unit:it[4],qty:q,analog:an,note:note,replCode:"",replName:"",replQty:0});
+    else L.push({sect:it[0],code:code,name:it[3],newName:"",unit:it[4],qty:q,analog:an,note:note,replCode:"",replName:"",replQty:0});
   }
-  save();closeSheet();render();toast("Добавлено в заявку №"+(S.draft.no||nextNo()));
+  afterAdd(T);
 }
 function lkey(l){return (l.code||("N:"+l.newName))+"|"+(l.replCode||"")}
 function corrReq(no){
@@ -382,8 +400,8 @@ function saveLine(i){
 function addOut(){
   var nm=$("oName").value.trim(),un=$("oUnit").value.trim(),q=parseFloat(String($("oQty").value).replace(",","."))||0;
   if(!nm||!un||q<=0){toast("Заполните название, единицу и количество");return}
-  S.draft.lines.push({sect:$("oSect").value,code:"",name:"",newName:nm,unit:un,qty:q,analog:false,note:$("oNote").value.trim(),replCode:"",replName:"",replQty:0});
-  save();closeSheet();render();toast("Добавлено (вне проекта)");
+  var T=targetLines();T.lines.push({sect:$("oSect").value,code:"",name:"",newName:nm,unit:un,qty:q,analog:false,note:$("oNote").value.trim(),replCode:"",replName:"",replQty:0});
+  afterAdd(T);
 }
 $("fSnap").addEventListener("change",function(){
   var f=this.files[0];if(!f)return;
