@@ -53,6 +53,7 @@ h2{font-size:18px;margin:6px 0 10px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:#222;color:#fff;border-radius:20px;padding:9px 16px;font-size:14px;z-index:40;display:none;max-width:90%}
 table.t{width:100%;border-collapse:collapse;font-size:14px}
 table.t td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+.qb{border:1px solid var(--line,#ccc);background:#fff;border-radius:8px;padding:6px 10px;font-size:16px;font-weight:700;color:inherit}
 .x{border:0;background:none;color:var(--bad);font-size:20px;padding:4px 8px}
 </style>
 </head>
@@ -134,11 +135,11 @@ function lineTxt(l){
   return l.newName+(l.replCode?" (замена "+l.replCode+")":" (вне проекта)");
 }
 function renderDraft(a,f){
-  var d=S.draft,h='<h2>Заявка №'+(d.no||nextNo())+'</h2>';
+  var d=S.draft,h='<h2>'+(d.orig?'Редактирование заявки №':'Заявка №')+(d.no||nextNo())+'</h2>'+(d.orig?'<div class="card" style="background:#fff7d6">Вы правите уже сформированную заявку. Нажмите «Сформировать», чтобы сохранить изменения, и отправьте её заново. Если снабжение уже загрузило прежнюю версию в реестр — предупредите его.<br><button class="btn sec" id="bCancelEdit" style="margin-top:8px">Отменить правки</button></div>':'');
   h+='<div class="card"><div class="row"><div><label>Номер заявки</label><input id="dNo" type="number" inputmode="numeric" value="'+(d.no||nextNo())+'"></div><div><label>Нужно к дате</label><input id="dDue" type="date" value="'+esc(d.due||addDays(S.set.days))+'"></div></div><label>Кто составил</label><input id="dAuthor" value="'+esc(d.author||S.set.author)+'" placeholder="Фамилия, должность"></div>';
   if(!d.lines.length)h+='<div class="empty">В заявке пока нет позиций.<br>Вернитесь в каталог и нажмите на позицию.</div>';
   else{h+='<div class="card"><table class="t">';d.lines.forEach(function(l,i){
-    h+='<tr><td><b>'+(i+1)+'.</b></td><td>'+esc(lineTxt(l))+(l.note?'<br><span class="mut">'+esc(l.note)+'</span>':'')+(l.analog?'<br><span class="mut">допускается аналог</span>':'')+'</td><td style="text-align:right;white-space:nowrap"><b>'+fmt(l.qty)+'</b> '+esc(l.unit)+'</td><td><button class="x" data-del="'+i+'">✕</button></td></tr>'});
+    h+='<tr><td><b>'+(i+1)+'.</b></td><td>'+esc(lineTxt(l))+(l.note?'<br><span class="mut">'+esc(l.note)+'</span>':'')+(l.analog?'<br><span class="mut">допускается аналог</span>':'')+'</td><td style="text-align:right;white-space:nowrap"><button class="qb" data-edit="'+i+'">'+fmt(l.qty)+' '+esc(l.unit)+' ✎</button></td><td><button class="x" data-del="'+i+'">✕</button></td></tr>'});
     h+='</table></div>';}
   a.innerHTML=h;
   f.innerHTML='<button class="btn sec" id="bBack">← Каталог</button>'+(d.lines.length?'<button class="btn" id="bFinish">Сформировать</button>':'');
@@ -147,7 +148,7 @@ function renderHist(a,f){
   var h='<h2>Сформированные заявки</h2>';
   if(!S.reqs.length)h+='<div class="empty">Пока ничего нет</div>';
   S.reqs.slice().reverse().forEach(function(r){
-    h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+(r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>')+'</div>';
+    h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+(r.rev?' (изм. '+r.rev+')':'')+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+(r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>')+'</div>';
   });
   a.innerHTML=h;f.innerHTML='<button class="btn sec big" id="bBack">← Каталог</button>';
 }
@@ -214,7 +215,7 @@ function xlsx(rows,widths){
    {n:"xl/styles.xml",d:u8(styles)},{n:"xl/worksheets/sheet1.xml",d:u8(sheet)}]);
 }
 function reqXlsx(r){
-  var rows=[[{v:"Заявка №"+r.no+" на поставку материалов и оборудования",s:3}],["Объект: "+(S.snap.object||S.snap.label)],["Дата: "+ru(r.date)+"   Составил: "+(r.author||"")],["Версия проекта: "+(r.ver||"")],[],
+  var rows=[[{v:"Заявка №"+r.no+(r.rev?" (изм. "+r.rev+")":"")+" на поставку материалов и оборудования",s:3}],["Объект: "+(S.snap.object||S.snap.label)],["Дата: "+ru(r.date)+"   Составил: "+(r.author||"")],["Версия проекта: "+(r.ver||"")],[],
    [{v:"№",s:1},{v:"Раздел",s:1},{v:"Код",s:1},{v:"Наименование",s:1},{v:"Ед. изм.",s:1},{v:"Кол-во",s:1},{v:"Нужно к",s:1},{v:"Примечание",s:1}]];
   r.lines.forEach(function(l,i){var nm=l.code?l.name:(l.newName+(l.replCode?" (вместо "+l.replCode+")":" (вне проекта)"));
     rows.push([{v:i+1,s:2},{v:l.sect,s:2},{v:l.code||"ВНЕ-СМЕТЫ",s:2},{v:nm,s:2},{v:l.unit,s:2},{v:l.qty,s:2},{v:ru(r.due),s:2},{v:(l.analog?"Допускается аналог. ":"")+(l.note||""),s:2}])});
@@ -226,7 +227,7 @@ function reqCsv(r){
   return new Blob(["﻿"+o.join("\r\n")],{type:"text/csv"});
 }
 function reqText(r){
-  var t="Заявка №"+r.no+" — "+(S.snap.label||"")+"\nДата: "+ru(r.date)+" · нужно к "+ru(r.due)+"\nСоставил: "+(r.author||"—")+"\nВерсия проекта: "+(r.ver||"—")+"\n\n";
+  var t="Заявка №"+r.no+(r.rev?" (изменение "+r.rev+")":"")+" — "+(S.snap.label||"")+"\nДата: "+ru(r.date)+" · нужно к "+ru(r.due)+"\nСоставил: "+(r.author||"—")+"\nВерсия проекта: "+(r.ver||"—")+"\n\n";
   r.lines.forEach(function(l,i){t+=(i+1)+". "+(l.code?l.code+" | "+l.name:l.newName+(l.replCode?" (замена "+l.replCode+")":" (вне проекта)"))+" — "+fmt(l.qty)+" "+l.unit+(l.analog?" [допускается аналог]":"")+(l.note?" · "+l.note:"")+"\n"});
   return t;
 }
@@ -236,7 +237,7 @@ function finish(){
   if(S.reqs.some(function(x){return x.no===no})){toast("Заявка с номером "+no+" уже есть в истории — смените номер");return}
   var verS={};d.lines.forEach(function(l){verS[l.sect]=1});
   var ver=Object.keys(verS).map(function(s){return s+": "+((S.snap.ver&&S.snap.ver[s])||"—")}).join("; ");
-  var r={no:no,date:iso(new Date()),ts:new Date().toISOString().slice(0,16).replace("T"," "),due:due,author:au,ver:ver,lines:d.lines.slice(),sent:false};
+  var r={no:no,date:iso(new Date()),ts:new Date().toISOString().slice(0,16).replace("T"," "),due:due,author:au,ver:ver,lines:d.lines.slice(),sent:false};if(d.orig)r.rev=(d.orig.rev||0)+1;
   S.reqs.push(r);S.set.author=au;S.draft={no:null,lines:[],due:"",author:""};save();
   shareSheet(r);
 }
@@ -245,6 +246,7 @@ function shareSheet(r){
    '<button class="btn big" id="sShare" data-no="'+r.no+'">Отправить (Excel + текст)…</button>'+
    '<button class="btn sec big" id="sCopy" data-no="'+r.no+'" style="margin-top:8px">Скопировать текст для Bitrix</button>'+
    '<button class="btn sec big" id="sXlsx" data-no="'+r.no+'" style="margin-top:8px">Сохранить файл Excel</button>'+
+   '<button class="btn sec big" id="sEdit" data-no="'+r.no+'" style="margin-top:8px">Редактировать заявку</button>'+
    '<button class="btn sec big" id="sCsv" data-no="'+r.no+'" style="margin-top:8px">Сохранить файл для реестра (csv)</button>'+
    '<label style="display:flex;gap:8px;align-items:center;color:var(--ink);font-size:16px;margin-top:14px"><input id="sSent" type="checkbox" style="width:22px;height:22px"'+(r.sent?" checked":"")+' data-no="'+r.no+'"> Отправлено в Bitrix</label>'+
    '<button class="btn sec big" id="sClose2" style="margin-top:10px">Готово</button>';
@@ -269,6 +271,8 @@ document.addEventListener("click",function(e){
   if(b.dataset.sect!==undefined){S.sect=b.dataset.sect;S.q="";render();return}
   if(b.classList.contains("item")){itemSheet(b.dataset.code);return}
   if(b.dataset.req){var r=getReq(b.dataset.req);if(r)shareSheet(r);return}
+  if(b.dataset.edit!==undefined){lineSheet(+b.dataset.edit);return}
+  if(b.dataset.st2){var a2=b.dataset.st2.split(":"),q2=$(a2[0]),v2=parseFloat(String(q2.value).replace(",","."))||0;q2.value=Math.max(0,Math.round((v2+(+a2[1]))*1000)/1000);return}
   if(b.dataset.del!==undefined){S.draft.lines.splice(+b.dataset.del,1);save();render();return}
   if(b.dataset.st){var q=$("iQty"),v=parseFloat(String(q.value).replace(",","."))||0;v=Math.max(0,Math.round((v+(+b.dataset.st))*1000)/1000);q.value=v;q.dispatchEvent(new Event("input"));return}
   switch(id){
@@ -282,13 +286,16 @@ document.addEventListener("click",function(e){
    case"sRepl":$("iRepl").style.display=$("iRepl").style.display==="block"?"none":"block";$("sRepl").textContent=$("iRepl").style.display==="block"?"Без замены":"Заменить";checkQty(find(document.querySelector("#sAdd").dataset.code));break;
    case"sAdd":addItem(b.dataset.code);break;
    case"oAdd":addOut();break;
+   case"bCancelEdit":if(S.draft.orig&&confirm("Отменить правки и вернуть заявку как была?")){var o=S.draft.orig;S.reqs.push(o);S.draft={no:null,lines:[],due:"",author:""};save();S.view="hist";render()}break;
+   case"lSave":saveLine(+b.dataset.i);break;
+   case"sEdit":editReq(b.dataset.no);break;
    case"sShare":doShare(getReq(b.dataset.no));break;
    case"sCopy":var r1=getReq(b.dataset.no);(navigator.clipboard?navigator.clipboard.writeText(reqText(r1)):Promise.reject()).then(function(){toast("Текст скопирован — вставьте в Bitrix")},function(){toast("Не удалось скопировать")});break;
    case"sXlsx":var r2=getReq(b.dataset.no);dl(reqXlsx(r2),fname(r2,"xlsx"));break;
    case"sCsv":var r3=getReq(b.dataset.no);dl(reqCsv(r3),fname(r3,"csv"));break;
    case"mLoad":closeSheet();$("fSnap").click();break;
    case"mHist":closeSheet();S.view="hist";render();break;
-   case"mClear":if(confirm("Удалить неотправленный черновик заявки?")){S.draft={no:null,lines:[],due:"",author:""};save();closeSheet();render()}break;
+   case"mClear":if(confirm(S.draft.orig?"Вы правите сформированную заявку №"+S.draft.no+". Удалить её совсем?":"Удалить неотправленный черновик заявки?")){S.draft={no:null,lines:[],due:"",author:""};save();closeSheet();render()}break;
   }
 });
 document.addEventListener("input",function(e){
@@ -314,6 +321,44 @@ function addItem(code){
     else S.draft.lines.push({sect:it[0],code:code,name:it[3],newName:"",unit:it[4],qty:q,analog:an,note:note,replCode:"",replName:"",replQty:0});
   }
   save();closeSheet();render();toast("Добавлено в заявку №"+(S.draft.no||nextNo()));
+}
+function editReq(no){
+  var r=getReq(no);if(!r)return;
+  if(S.draft.lines.length){toast("Сначала сформируйте или очистите текущий черновик");return}
+  if(r.sent&&!confirm("Заявка уже отмечена как отправленная. После правки её нужно отправить заново, а снабжение должно заменить прежнюю версию. Править?"))return;
+  var cp=JSON.parse(JSON.stringify(r));
+  S.reqs=S.reqs.filter(function(x){return x.no!==r.no});
+  S.draft={no:r.no,lines:cp.lines,due:r.due,author:r.author,orig:JSON.parse(JSON.stringify(r))};
+  save();closeSheet();S.view="draft";render();window.scrollTo(0,0);toast("Заявка №"+r.no+" открыта для правки");
+}
+function lineSheet(i){
+  var l=S.draft.lines[i];if(!l)return;
+  var it=l.code?find(l.code):(l.replCode?find(l.replCode):null);
+  var h='<b>'+esc(lineTxt(l))+'</b>';
+  if(l.replCode){
+    h+='<div class="mut" style="margin:6px 0">Замена. Можно изменить количество нового и заменяемого.</div>'+
+    '<label>Новое, '+esc(l.unit)+'</label><div class="row"><button class="btn sec" data-st2="lQty:-1">−</button><input id="lQty" inputmode="decimal" value="'+l.qty+'"><button class="btn sec" data-st2="lQty:1">+</button></div>'+
+    '<label>Заменяется (макс. '+(it?fmt(avail(it)+l.replQty):"—")+')</label><div class="row"><button class="btn sec" data-st2="lRep:-1">−</button><input id="lRep" inputmode="decimal" value="'+l.replQty+'"><button class="btn sec" data-st2="lRep:1">+</button></div>';
+  }else{
+    h+='<div class="mut" style="margin:6px 0">'+(it?'можно до '+fmt(avail(it)+l.qty)+' '+esc(l.unit):'вне проекта')+'</div>'+
+    '<label>Количество, '+esc(l.unit)+'</label><div class="row"><button class="btn sec" data-st2="lQty:-1">−</button><input id="lQty" inputmode="decimal" value="'+l.qty+'"><button class="btn sec" data-st2="lQty:1">+</button></div>';
+  }
+  h+='<button class="btn big" id="lSave" data-i="'+i+'" style="margin-top:12px">Сохранить</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>';
+  openSheet(h);
+}
+function saveLine(i){
+  var l=S.draft.lines[i];if(!l)return;
+  var q=parseFloat(String($("lQty").value).replace(",","."))||0;
+  var it=l.code?find(l.code):(l.replCode?find(l.replCode):null);
+  if(q<=0){toast("Количество должно быть больше нуля");return}
+  if(l.replCode){
+    var rq=parseFloat(String($("lRep").value).replace(",","."))||0;
+    if(rq<=0){toast("Укажите, сколько заменяется");return}
+    if(it&&rq>avail(it)+l.replQty+1e-9){toast("Заменяется больше, чем осталось по проекту ("+fmt(avail(it)+l.replQty)+")");return}
+    l.note=String(l.note||"").replace(/вместо [\d.,]+ /,"вместо "+fmt(rq)+" ");
+    l.replQty=rq;
+  }else if(it&&q>avail(it)+l.qty+1e-9){toast("Больше, чем осталось по проекту ("+fmt(avail(it)+l.qty)+")");return}
+  l.qty=q;save();closeSheet();render();toast("Количество изменено");
 }
 function addOut(){
   var nm=$("oName").value.trim(),un=$("oUnit").value.trim(),q=parseFloat(String($("oQty").value).replace(",","."))||0;
