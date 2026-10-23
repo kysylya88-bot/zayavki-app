@@ -60,7 +60,7 @@ table.t td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:to
 </head>
 <body>
 <header>
-  <div class="t"><b id="hTitle">Заявки на объекте</b><small id="hSub">снимок реестра не загружен</small></div>
+  <div class="t"><b id="hTitle">Заявки на объекте</b><small id="hSub">реестр не загружен</small></div>
   <span class="pill" id="net">онлайн</span>
   <button id="bMenu" aria-label="Меню">☰</button>
 </header>
@@ -103,14 +103,14 @@ function nextNo(){var n=S.snap?S.snap.nextReq:1;S.reqs.forEach(function(r){if(r.
 /* ---------- экраны ---------- */
 function render(){
   var a=$("app"),f=$("fab");
-  if(!S.snap){a.innerHTML='<div class="card"><h2>Нужен снимок реестра</h2><p>Файл <b>Снимок_реестра_….json</b> делает снабжение кнопкой в Excel и присылает вам (Telegram, почта, Bitrix). Откройте его здесь — дальше приложение работает без интернета.</p><button class="btn big" id="bLoad">Выбрать файл снимка</button></div>';f.innerHTML="";bind();hdr();return}
+  if(!S.snap){a.innerHTML='<div class="card"><h2>Нужен реестр объекта</h2><p>Файл <b>Снимок_реестра_….json</b> делает снабжение кнопкой в Excel и присылает вам (Telegram, почта, Bitrix). Откройте его здесь — дальше приложение работает без интернета.</p><button class="btn big" id="bLoad">Выбрать файл снимка</button></div>';f.innerHTML="";bind();hdr();return}
   hdr();
   if(S.view==="cat")renderCat(a,f);else if(S.view==="draft")renderDraft(a,f);else if(S.view==="hist")renderHist(a,f);
   bind();
 }
 function hdr(){
   $("hTitle").textContent=S.snap?(S.snap.label||"Заявки"):"Заявки на объекте";
-  $("hSub").textContent=S.snap?("Снимок от "+ru(S.snap.date)+" · заявка №"+(S.draft.no||nextNo())):"снимок реестра не загружен";
+  $("hSub").textContent=S.snap?("Реестр от "+ru(S.snap.date)+" · заявка №"+(S.draft.no||nextNo())):"реестр не загружен";
   var n=$("net");n.textContent=navigator.onLine?"онлайн":"офлайн";n.className="pill"+(navigator.onLine?"":" off");
 }
 function renderCat(a,f){
@@ -148,7 +148,7 @@ function renderDraft(a,f){
   f.innerHTML='<button class="btn sec" id="bBack">← Каталог</button>'+(d.lines.length?'<button class="btn" id="bFinish">Сформировать</button>':'');
 }
 function renderHist(a,f){
-  var h='<h2>Сформированные заявки</h2>';
+  var h='<h2>Заявки</h2>';
   if(!S.reqs.length)h+='<div class="empty">Пока ничего нет</div>';
   S.reqs.slice().reverse().forEach(function(r){
     h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+(r.rev?' (изм. '+r.rev+')':'')+(r.corr?' (корр. к №'+r.corr+')':'')+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+(r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>')+'</div>';
@@ -335,7 +335,7 @@ document.addEventListener("input",function(e){
 document.addEventListener("change",function(e){if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;save();shareSheet(r)}}});
 $("bg").addEventListener("click",function(){closeSheet();render()});
 function keepDraftFields(){var n=$("dNo");if(n){S.draft.no=parseInt(n.value,10)||null;S.draft.due=$("dDue").value;S.draft.author=$("dAuthor").value;save()}}
-function menu(){openSheet('<b>Меню</b><button class="btn sec big" id="mLoad" style="margin-top:12px">Загрузить новый снимок реестра</button><button class="btn sec big" id="mHist" style="margin-top:8px">Сформированные заявки</button><button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
+function menu(){openSheet('<b>Меню</b><button class="btn sec big" id="mLoad" style="margin-top:12px">Загрузить реестр объекта</button><button class="btn sec big" id="mHist" style="margin-top:8px">Заявки</button><button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
 function addItem(code){
   var T=targetLines(),L=T.lines,due=$("iDue").value||(T.req?T.req.due:S.draft.due)||addDays(S.set.days),it=find(code),q=parseFloat(String($("iQty").value).replace(",","."))||0,note=$("iNote").value.trim(),an=$("iAn").checked,repl=$("iRepl").style.display==="block";
   if(repl){
@@ -416,9 +416,9 @@ $("fSnap").addEventListener("change",function(){
   var f=this.files[0];if(!f)return;
   var rd=new FileReader();rd.onload=function(){
     try{var t=String(rd.result).replace(/^﻿/,""),o=JSON.parse(t);if(!o.items||!o.v)throw 0;
-      if(S.draft.lines.length&&!confirm("В черновике есть позиции. После загрузки нового снимка остатки пересчитаются. Продолжить?"))return;
-      o.ts=o.date;S.snap=o;save();S.view="cat";S.sect=null;render();toast("Снимок загружен: "+o.items.length+" позиций");
-    }catch(e){toast("Это не файл снимка реестра")}
+      if(S.draft.lines.length&&!confirm("В черновике есть позиции. После загрузки реестра остатки пересчитаются. Продолжить?"))return;
+      o.ts=o.date;S.snap=o;save();S.view="cat";S.sect=null;render();toast("Реестр загружен: "+o.items.length+" позиций");
+    }catch(e){toast("Это не файл реестра объекта")}
   };rd.readAsText(f,"utf-8");this.value="";
 });
 window.addEventListener("online",hdr);window.addEventListener("offline",hdr);
@@ -431,7 +431,7 @@ function autoSync(){
     var sig=hsh(t);
     if(S.snap&&S.snap.sig===sig)return;
     if(S.snap&&S.snap.date&&o.date&&o.date<S.snap.date)return;
-    o.ts=o.date;o.sig=sig;S.snap=o;save();render();toast("Реестр обновлён: снимок от "+ru(o.date));
+    o.ts=o.date;o.sig=sig;S.snap=o;save();render();toast("Реестр обновлён от "+ru(o.date));
   }).catch(function(){});
 }
 load();render();autoSync();
