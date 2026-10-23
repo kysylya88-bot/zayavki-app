@@ -73,10 +73,11 @@ table.t td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:to
 
 <script>
 "use strict";
-var KEY="bitreq1";
-var S={snap:null,draft:{no:null,lines:[],due:"",author:""},reqs:[],plan:{},view:"cat",sect:null,q:"",set:{author:"",days:7}};
-function load(){try{var j=localStorage.getItem(KEY);if(j){var o=JSON.parse(j);for(var k in o)S[k]=o[k];}}catch(e){}}
-function save(){try{localStorage.setItem(KEY,JSON.stringify({snap:S.snap,draft:S.draft,reqs:S.reqs,plan:S.plan,set:S.set}));}catch(e){toast("Не удалось сохранить данные на телефоне");}}
+var CFG={api:""},AUTH=null;
+function KEYo(){return "bitreq1"+(CFG.api&&AUTH&&AUTH.obj?":"+AUTH.obj:"")}
+var S={snap:null,draft:{no:null,lines:[],due:"",author:""},reqs:[],plan:{},srv:{pend:{},max:0,all:[],last:""},view:"cat",sect:null,q:"",set:{author:"",days:7}};
+function load(){try{var j=localStorage.getItem(KEYo());if(j){var o=JSON.parse(j);for(var k in o)S[k]=o[k];}}catch(e){}}
+function save(){try{localStorage.setItem(KEYo(),JSON.stringify({snap:S.snap,draft:S.draft,reqs:S.reqs,plan:S.plan,srv:S.srv,set:S.set}));}catch(e){toast("Не удалось сохранить данные на телефоне");}}
 function $(i){return document.getElementById(i)}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
 function fmt(n){n=Math.round(n*100)/100;return String(n).replace(".",",")}
@@ -93,24 +94,28 @@ function snapTs(){return S.snap?S.snap.date:""}
 function pendingQty(code){ // что уже набрано на телефоне и ещё не в снимке
   var t=0,i,L;
   S.draft.lines.forEach(function(l){if(l.code===code)t+=l.qty; if(l.replCode===code)t+=l.replQty});
-  S.reqs.forEach(function(r){ if(r.ts>snapTs()) r.lines.forEach(function(l){if(l.code===code)t+=l.qty; if(l.replCode===code)t+=l.replQty}) });
+  S.reqs.forEach(function(r){ if(CFG.api?!r.reg:r.ts>snapTs()) r.lines.forEach(function(l){if(l.code===code)t+=l.qty; if(l.replCode===code)t+=l.replQty}) });
+  if(CFG.api&&S.srv&&S.srv.pend)t+=S.srv.pend[code]||0;
   return t;
 }
 function avail(it){return Math.max(0,Math.round((it[7]-pendingQty(it[1]))*1000)/1000)}
 function find(code){if(!S.snap)return null;if(!S.snap._idx){S.snap._idx={};S.snap.items.forEach(function(it){S.snap._idx[it[1]]=it})}return S.snap._idx[code]}
-function nextNo(){var n=S.snap?S.snap.nextReq:1;S.reqs.forEach(function(r){if(r.no>=n)n=r.no+1});return n}
+function nextNo(){var n=S.snap?S.snap.nextReq:1;if(CFG.api&&S.srv&&S.srv.max>=n)n=S.srv.max+1;S.reqs.forEach(function(r){if(r.no>=n)n=r.no+1});return n}
 
 /* ---------- экраны ---------- */
 function render(){
   var a=$("app"),f=$("fab");
+  if(CFG.api&&(!AUTH||!AUTH.token)){renderLogin(a,f);hdr();return}
+  if(CFG.api&&!S.snap){a.innerHTML='<div class="card"><h2>Реестр объекта</h2><p>Данные ещё не получены с сервера. Подключитесь к интернету — они загрузятся сами.</p><button class="btn big" id="mSync">Обновить</button></div>';f.innerHTML="";hdr();return}
   if(!S.snap){a.innerHTML='<div class="card"><h2>Нужен реестр объекта</h2><p>Файл <b>Снимок_реестра_….json</b> делает снабжение кнопкой в Excel и присылает вам (Telegram, почта, Bitrix). Откройте его здесь — дальше приложение работает без интернета.</p><button class="btn big" id="bLoad">Выбрать файл снимка</button></div>';f.innerHTML="";bind();hdr();return}
   hdr();
   if(S.view==="cat")renderCat(a,f);else if(S.view==="draft")renderDraft(a,f);else if(S.view==="hist")renderHist(a,f);
   bind();
 }
 function hdr(){
+  var un=CFG.api?S.reqs.filter(function(r){return !r.synced}).length:0;
   $("hTitle").textContent=S.snap?(S.snap.label||"Заявки"):"Заявки на объекте";
-  $("hSub").textContent=S.snap?("Реестр от "+ru(S.snap.date)+" · заявка №"+(S.draft.no||nextNo())):"реестр не загружен";
+  $("hSub").textContent=(CFG.api&&(!AUTH||!AUTH.token))?"вход по рабочей почте":(S.snap?("Реестр от "+ru(S.snap.date)+" · заявка №"+(S.draft.no||nextNo())+(un?" · ждёт связи: "+un:"")):"реестр не загружен");
   var n=$("net");n.textContent=navigator.onLine?"онлайн":"офлайн";n.className="pill"+(navigator.onLine?"":" off");
 }
 function renderCat(a,f){
@@ -147,13 +152,37 @@ function renderDraft(a,f){
   a.innerHTML=h;
   f.innerHTML='<button class="btn sec" id="bBack">← Каталог</button>'+(d.lines.length?'<button class="btn" id="bFinish">Сформировать</button>':'');
 }
+function isPriv(){return CFG.api&&AUTH&&(AUTH.role==="Директор"||AUTH.role==="Снабжение"||AUTH.role==="Админ")}
+function stTxt(r){
+  if(r.canceled)return '<span class="st-bad">отменена</span>';
+  if(r.reg)return '<span class="st-ok">✓ загружена в реестр</span>';
+  return r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>';
+}
 function renderHist(a,f){
-  var h='<h2>Заявки</h2>';
-  if(!S.reqs.length)h+='<div class="empty">Пока ничего нет</div>';
-  S.reqs.slice().reverse().forEach(function(r){
-    h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+(r.rev?' (изм. '+r.rev+')':'')+(r.corr?' (корр. к №'+r.corr+')':'')+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+(r.sent?'<span class="st-ok">✓ отправлена в Bitrix</span>':'<span class="st-warn">не отмечена как отправленная</span>')+'</div>';
-  });
+  var h='<h2>Заявки</h2>',tab=S.histTab==="all"&&isPriv()?"all":"mine";
+  if(isPriv())h+='<div class="chips"><button class="chip'+(tab==="mine"?" on":"")+'" data-tab="mine">Мои</button><button class="chip'+(tab==="all"?" on":"")+'" data-tab="all">Все сотрудники</button></div>';
+  if(tab==="all"){
+    var all=(S.srv.all||[]).slice().sort(function(x,y){return y.no-x.no});
+    if(!all.length)h+='<div class="empty">На сервере пока нет заявок</div>';
+    all.forEach(function(r){
+      h+='<div class="card" data-all="'+esc(r.cid)+'"><b>Заявка №'+r.no+(r.corr?' (корр. к №'+esc(r.corr)+')':'')+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+stTxt(r)+(r.warn?'<br><span class="st-bad">⚠ '+esc(r.warn)+'</span>':'')+'</div>';
+    });
+    h+='<div class="mut" style="margin-top:8px">Обновлено: '+esc(S.srv.last||"—")+'</div>';
+  }else{
+    if(!S.reqs.length)h+='<div class="empty">Пока ничего нет</div>';
+    S.reqs.slice().reverse().forEach(function(r){
+      h+='<div class="card" data-req="'+r.no+'"><b>Заявка №'+r.no+(r.rev?' (изм. '+r.rev+')':'')+(r.corr?' (корр. к №'+r.corr+')':'')+'</b> · '+ru(r.date)+' · '+r.lines.length+' поз.<br><span class="mut">'+esc(r.author||"")+'</span> '+stTxt(r)+(CFG.api?(r.synced?' <span class="mut">☁</span>':' <span class="st-warn">⏳ ждёт связи</span>'):'')+(r.warn?'<br><span class="st-bad">⚠ '+esc(r.warn)+'</span>':'')+(r.err?'<br><span class="st-bad">'+esc(r.err)+'</span>':'')+'</div>';
+    });
+  }
   a.innerHTML=h;f.innerHTML='<button class="btn sec big" id="bBack">← Каталог</button>';
+}
+function allSheet(cid){
+  var r=(S.srv.all||[]).filter(function(x){return x.cid===cid})[0];if(!r)return;
+  var h='<b>Заявка №'+r.no+(r.corr?' (корр. к №'+esc(r.corr)+')':'')+'</b><div class="mut" style="margin:4px 0 10px">'+ru(r.date)+' · '+esc(r.author||"")+' · '+stTxt(r)+'</div>';
+  h+='<table class="t">';
+  r.lines.forEach(function(l,i){h+='<tr><td><b>'+(i+1)+'.</b></td><td>'+esc(lineTxt(l))+(l.note?'<br><span class="mut">'+esc(l.note)+'</span>':'')+'<br><span class="mut">к '+sd(l.due||r.due)+'</span></td><td style="text-align:right;white-space:nowrap"><b>'+fmt(l.qty)+'</b> '+esc(l.unit)+'</td></tr>'});
+  h+='</table>'+(r.warn?'<div class="warnbox badbox">⚠ '+esc(r.warn)+'</div>':'')+'<button class="btn sec big" id="sClose" style="margin-top:12px">Закрыть</button>';
+  openSheet(h);
 }
 
 /* ---------- окна ---------- */
@@ -174,8 +203,9 @@ function targetLines(){
   S.target=null;return {lines:S.draft.lines,req:null};
 }
 function afterAdd(t){
+  if(t.req){t.req.synced=false;t.req.err=""}
   if(t.req){var vs={};t.req.lines.forEach(function(l){vs[l.sect]=1});t.req.ver=Object.keys(vs).map(function(x){return x+": "+((S.snap.ver&&S.snap.ver[x])||"—")}).join("; ");}
-  save();closeSheet();render();toast("Добавлено в заявку №"+(t.req?t.req.no:(S.draft.no||nextNo())));
+  save();closeSheet();render();toast("Добавлено в заявку №"+(t.req?t.req.no:(S.draft.no||nextNo())));if(t.req)sync();
 }
 function itemSheet(code){
   var it=find(code);if(!it)return;var av=avail(it);
@@ -264,8 +294,8 @@ function finish(){
   var verS={};dl.forEach(function(l){verS[l.sect]=1});
   var ver=Object.keys(verS).map(function(s){return s+": "+((S.snap.ver&&S.snap.ver[s])||"—")}).join("; ");
   var r={no:no,date:iso(new Date()),ts:new Date().toISOString().slice(0,16).replace("T"," "),due:due,author:au,ver:ver,lines:dl.slice(),sent:false};if(d.orig)r.rev=(d.orig.rev||0)+1;if(d.corrOf)r.corr=d.corrOf;
-  S.reqs.push(r);S.set.author=au;S.draft={no:null,lines:[],due:"",author:""};save();
-  shareSheet(r);
+  r.cid=d.cid||uid();S.reqs.push(r);S.set.author=au;S.draft={no:null,lines:[],due:"",author:""};save();
+  shareSheet(r);sync();
 }
 function shareSheet(r){
   var h='<b>Заявка №'+r.no+' готова</b><div class="mut" style="margin:4px 0 12px">'+r.lines.length+' поз. Отправьте её в Bitrix и передайте снабжению файл для реестра.</div>'+
@@ -292,10 +322,13 @@ function doShare(r){
 /* ---------- события ---------- */
 function bind(){}
 document.addEventListener("click",function(e){
-  var t=e.target,b=t.closest("button,.item,.card[data-req]");if(!b)return;
+  var t=e.target,b=t.closest("button,.item,.card[data-req],.card[data-all]");if(!b)return;
   var id=b.id;
   if(b.dataset.sect!==undefined){S.sect=b.dataset.sect;S.q="";render();return}
   if(b.classList.contains("item")){itemSheet(b.dataset.code);return}
+  if(b.dataset.tab){S.histTab=b.dataset.tab;render();return}
+  if(b.dataset.all){allSheet(b.dataset.all);return}
+  if(b.dataset.obj){switchObj(b.dataset.obj);return}
   if(b.dataset.req){var r=getReq(b.dataset.req);if(r)shareSheet(r);return}
   if(b.dataset.edit!==undefined){lineSheet(+b.dataset.edit);return}
   if(b.dataset.st2){var a2=b.dataset.st2.split(":"),q2=$(a2[0]),v2=parseFloat(String(q2.value).replace(",","."))||0;q2.value=Math.max(0,Math.round((v2+(+a2[1]))*1000)/1000);return}
@@ -323,6 +356,12 @@ document.addEventListener("click",function(e){
    case"sXlsx":var r2=getReq(b.dataset.no);dl(reqXlsx(r2),fname(r2,"xlsx"));break;
    case"sCsv":var r3=getReq(b.dataset.no);dl(reqCsv(r3),fname(r3,"csv"));break;
    case"mLoad":closeSheet();$("fSnap").click();break;
+   case"bLogin":doLogin();break;
+   case"mSync":closeSheet();sync(true);break;
+   case"mObj":objSheet();break;
+   case"mPass":passSheet();break;
+   case"pSave":savePass();break;
+   case"mLogout":if(confirm("Выйти из приложения? Неотправленные заявки останутся на телефоне до следующего входа."))logout();break;
    case"mHist":closeSheet();S.view="hist";render();break;
    case"mClear":if(confirm(S.draft.orig?"Вы правите сформированную заявку №"+S.draft.no+". Удалить её совсем?":"Удалить неотправленный черновик заявки?")){S.draft={no:null,lines:[],due:"",author:""};save();closeSheet();render()}break;
   }
@@ -332,10 +371,20 @@ document.addEventListener("input",function(e){
   if(t.id==="q"){S.q=t.value;var p=t.selectionStart;render();var n=$("q");n.focus();try{n.setSelectionRange(p,p)}catch(x){}}
   else if(t.id==="iQty"||t.id==="rRep"||t.id==="rQty"){var it=find(document.querySelector("#sAdd").dataset.code);if(it)checkQty(it)}
 });
-document.addEventListener("change",function(e){if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;save();shareSheet(r)}}});
+document.addEventListener("change",function(e){if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;r.synced=false;save();shareSheet(r);sync()}}});
 $("bg").addEventListener("click",function(){closeSheet();render()});
 function keepDraftFields(){var n=$("dNo");if(n){S.draft.no=parseInt(n.value,10)||null;S.draft.due=$("dDue").value;S.draft.author=$("dAuthor").value;save()}}
-function menu(){openSheet('<b>Меню</b><button class="btn sec big" id="mLoad" style="margin-top:12px">Загрузить реестр объекта</button><button class="btn sec big" id="mHist" style="margin-top:8px">Заявки</button><button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
+function menu(){
+  var h='<b>Меню</b>';
+  if(CFG.api&&AUTH)h+='<div class="mut" style="margin:4px 0 8px">'+esc(AUTH.name||AUTH.email)+' · '+esc(AUTH.role||"")+'</div><button class="btn big" id="mSync" style="margin-top:6px">Обновить данные</button>';
+  else h+='<button class="btn sec big" id="mLoad" style="margin-top:12px">Загрузить реестр объекта</button>';
+  h+='<button class="btn sec big" id="mHist" style="margin-top:8px">Заявки</button>';
+  if(CFG.api&&AUTH&&AUTH.objects&&AUTH.objects.length>1)h+='<button class="btn sec big" id="mObj" style="margin-top:8px">Сменить объект</button>';
+  h+='<button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button>';
+  if(CFG.api&&AUTH)h+='<button class="btn sec big" id="mPass" style="margin-top:8px">Сменить пароль</button><button class="btn sec big" id="mLogout" style="margin-top:8px">Выйти</button>';
+  h+='<button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>';
+  openSheet(h);
+}
 function addItem(code){
   var T=targetLines(),L=T.lines,due=$("iDue").value||(T.req?T.req.due:S.draft.due)||addDays(S.set.days),it=find(code),q=parseFloat(String($("iQty").value).replace(",","."))||0,note=$("iNote").value.trim(),an=$("iAn").checked,repl=$("iRepl").style.display==="block";
   if(repl){
@@ -367,10 +416,10 @@ function corrReq(no){
 function editReq(no){
   var r=getReq(no);if(!r)return;
   if(S.draft.lines.length){toast("Сначала сформируйте или очистите текущий черновик");return}
-  if(r.sent){toast("Заявка уже отправлена — выпустите корректирующую");return}
+  if(r.sent||r.reg){toast(r.reg?"Заявка уже загружена в реестр — выпустите корректирующую":"Заявка уже отправлена — выпустите корректирующую");return}
   var cp=JSON.parse(JSON.stringify(r));
   S.reqs=S.reqs.filter(function(x){return x.no!==r.no});
-  S.draft={no:r.no,lines:cp.lines,due:r.due,author:r.author,orig:JSON.parse(JSON.stringify(r))};
+  S.draft={no:r.no,lines:cp.lines,due:r.due,author:r.author,cid:r.cid,orig:JSON.parse(JSON.stringify(r))};
   save();closeSheet();S.view="draft";render();window.scrollTo(0,0);toast("Заявка №"+r.no+" открыта для правки");
 }
 function lineSheet(i){
@@ -434,8 +483,88 @@ function autoSync(){
     o.ts=o.date;o.sig=sig;S.snap=o;save();render();toast("Реестр обновлён от "+ru(o.date));
   }).catch(function(){});
 }
-load();render();autoSync();
-document.addEventListener("visibilitychange",function(){if(!document.hidden)autoSync()});
+/* ---------- сервер ---------- */
+function uid(){return window.crypto&&crypto.randomUUID?crypto.randomUUID():"c"+Date.now().toString(36)+Math.random().toString(36).slice(2,10)}
+function api(body){return fetch(CFG.api,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(body)}).then(function(r){return r.json()})}
+function saveAuth(){try{localStorage.setItem("bitreq-auth",JSON.stringify(AUTH))}catch(e){}}
+function renderLogin(a,f){
+  a.innerHTML='<div class="card"><h2>Вход</h2><p class="mut">Рабочая почта и пароль, который пришёл вам на почту.</p><label>Почта</label><input id="lEmail" type="email" autocomplete="username" inputmode="email" placeholder="name@upiterstroy.ru" value="'+esc((AUTH&&AUTH.email)||"")+'"><label>Пароль</label><input id="lPass" type="password" autocomplete="current-password"><div id="lErr" class="mut" style="color:#b3261e;margin-top:8px"></div><button class="btn big" id="bLogin" style="margin-top:12px">Войти</button></div>';
+  f.innerHTML="";
+}
+function doLogin(){
+  var em=$("lEmail").value.trim().toLowerCase(),pw=$("lPass").value;
+  if(!em||!pw){$("lErr").textContent="Введите почту и пароль";return}
+  $("lErr").textContent="Проверяю…";
+  api({a:"login",email:em,password:pw}).then(function(d){
+    if(!d.ok){$("lErr").textContent=d.error||"Не удалось войти";return}
+    var prev=AUTH&&AUTH.obj;
+    AUTH={token:d.token,email:d.email,name:d.name,role:d.role,objects:d.objects,obj:(d.objects.filter(function(o){return o.code===prev})[0]||d.objects[0]||{}).code||""};
+    saveAuth();resetS();load();S.view="cat";render();sync(true);
+  }).catch(function(){$("lErr").textContent="Нет связи с сервером. Проверьте интернет."});
+}
+function resetS(){S.snap=null;S.draft={no:null,lines:[],due:"",author:""};S.reqs=[];S.plan={};S.srv={pend:{},max:0,all:[],last:""};S.sect=null;S.q="";S.view="cat"}
+function logout(){if(AUTH){AUTH.token="";saveAuth()}resetS();render()}
+function switchObj(code){save();AUTH.obj=code;saveAuth();resetS();load();closeSheet();render();sync(true)}
+function objSheet(){openSheet('<b>Объект</b>'+AUTH.objects.map(function(o){return '<button class="btn'+(o.code===AUTH.obj?'':' sec')+' big" data-obj="'+esc(o.code)+'" style="margin-top:8px">'+esc(o.label)+'</button>'}).join("")+'<button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
+function passSheet(){openSheet('<b>Смена пароля</b><label>Старый пароль</label><input id="pOld" type="password"><label>Новый пароль (не короче 8 символов)</label><input id="pNew" type="password"><div id="pErr" class="mut" style="color:#b3261e;margin-top:6px"></div><button class="btn big" id="pSave" style="margin-top:10px">Сохранить</button><button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>')}
+function savePass(){
+  api({a:"passwd",token:AUTH.token,old:$("pOld").value,neu:$("pNew").value}).then(function(d){
+    if(d.ok){closeSheet();toast("Пароль изменён")}else if(d.auth)logout();else $("pErr").textContent=d.error||"Не удалось"
+  }).catch(function(){$("pErr").textContent="Нет связи с сервером"});
+}
+var syncing=false;
+function packReq(r){return {cid:r.cid,no:r.no,date:r.date,due:r.due,ver:r.ver,corr:r.corr||"",rev:r.rev||0,sent:!!r.sent,lines:r.lines}}
+function sync(manual){
+  if(!CFG.api||!AUTH||!AUTH.token||!AUTH.obj)return;
+  if(!navigator.onLine){if(manual)toast("Нет интернета — данные обновятся позже");return}
+  if(syncing)return;
+  S.reqs.forEach(function(r){if(!r.cid)r.cid=uid()});
+  var out=S.reqs.filter(function(r){return !r.synced}).map(packReq);
+  syncing=true;
+  api({a:"sync",token:AUTH.token,obj:AUTH.obj,snapVer:S.snap?S.snap.date:"",outbox:out}).then(function(d){
+    syncing=false;
+    if(!d.ok){if(d.auth){logout();toast("Войдите заново")}else if(manual)toast(d.error||"Ошибка");return}
+    applySync(d);if(manual)toast("Данные обновлены");
+  }).catch(function(){syncing=false;if(manual)toast("Нет связи с сервером")});
+}
+function applySync(d){
+  var msgs=[],by={};S.reqs.forEach(function(r){by[r.cid]=r});
+  if(d.user){AUTH.name=d.user.name;AUTH.role=d.user.role}
+  if(d.objects){AUTH.objects=d.objects}saveAuth();
+  var srvBy={};(d.reqs||[]).forEach(function(x){srvBy[x.cid]=x});
+  (d.results||[]).forEach(function(x){
+    var r=by[x.cid];if(!r)return;
+    if(x.rejected){r.synced=true;msgs.push("№"+r.no+": "+x.rejected);var sr=srvBy[x.cid];
+      if(sr){r.lines=sr.lines;r.no=sr.no;r.sent=sr.sent;r.reg=sr.reg;r.due=sr.due}r.err="";return}
+    if(x.error){r.synced=true;r.err=x.error;msgs.push("№"+r.no+": "+x.error);return}
+    if(x.no&&x.no!==r.no){msgs.push("Номер заявки изменён на №"+x.no+" (прежний занят)");r.no=x.no}
+    r.synced=true;r.err="";r.warn=x.warn||"";
+  });
+  if(d.snap){S.snap=d.snap;S.snap.ts=d.snap.date}
+  S.srv={pend:d.pend||{},max:d.maxNo||0,all:d.reqs||[],last:d.now||""};
+  (d.reqs||[]).forEach(function(sr){
+    if(!sr.mine)return;var l=by[sr.cid];
+    if(!l){S.reqs.push({cid:sr.cid,no:sr.no,date:sr.date,ts:sr.date+" 00:00",due:sr.due,author:sr.author,ver:sr.ver,corr:sr.corr||undefined,rev:sr.rev||undefined,lines:sr.lines,sent:sr.sent,reg:sr.reg,synced:true,warn:sr.warn});by[sr.cid]=S.reqs[S.reqs.length-1];return}
+    l.reg=sr.reg;l.canceled=sr.canceled;if(l.synced){l.no=sr.no;if(sr.sent)l.sent=true;l.warn=sr.warn}
+  });
+  S.reqs.sort(function(a,b){return (a.date+a.no)<(b.date+b.no)?-1:1});
+  save();render();
+  if(msgs.length)toast(msgs.join(" · "));
+}
+function boot(cfg){
+  CFG.api=(cfg&&cfg.api)||(AUTH&&AUTH.api)||"";
+  if(CFG.api&&AUTH)AUTH.api=CFG.api;
+  load();S.reqs.forEach(function(r){if(!r.cid)r.cid=uid()});
+  render();
+  if(CFG.api){if(AUTH&&AUTH.token)sync();}else autoSync();
+}
+try{AUTH=JSON.parse(localStorage.getItem("bitreq-auth")||"null")}catch(e){AUTH=null}
+if(AUTH&&AUTH.api&&!navigator.onLine){boot({api:AUTH.api})}
+else if(window.fetch&&/^https?:/.test(location.protocol)){fetch("config.json?t="+Date.now(),{cache:"no-store"}).then(function(r){return r.ok?r.json():{}}).catch(function(){return {}}).then(boot)}
+else boot({});
+window.addEventListener("online",function(){sync()});
+document.addEventListener("visibilitychange",function(){if(!document.hidden){if(CFG.api)sync();else autoSync()}});
+setInterval(function(){if(!document.hidden&&CFG.api)sync()},90000);
 </script>
 </body>
 </html>
