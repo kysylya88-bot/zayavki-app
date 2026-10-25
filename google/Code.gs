@@ -413,8 +413,10 @@ function onOpen() {
 function setup() {
   for (var k in SH) sheet_(k);
   secret_();
-  var ui = SpreadsheetApp.getUi();
-  ui.alert('Готово', 'Листы проверены. Дальше: Развернуть → Новое развёртывание → Веб-приложение (доступ: все), и вставьте адрес в файл config.json приложения. Подробности на листе «Инструкция».', ui.ButtonSet.OK);
+  try {
+    var ui = SpreadsheetApp.getUi();
+    ui.alert('Готово', 'Листы проверены. Дальше: Развернуть → Новое развёртывание → Веб-приложение (доступ: все), и вставьте адрес в файл config.json приложения. Подробности на листе «Инструкция».', ui.ButtonSet.OK);
+  } catch (e) { Logger.log('Листы проверены'); }
 }
 
 function sendPassword_(email, name, pass) {
