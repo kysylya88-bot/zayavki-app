@@ -30,9 +30,9 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 .item{display:flex;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);background:#fff}
 .item:first-child{border-radius:12px 12px 0 0}.item:last-child{border-radius:0 0 12px 12px;border-bottom:0}
 .list{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:10px}
-.item .c{width:76px;flex:none;font-size:12px;color:var(--mut);padding-top:2px}
+.item .c{width:88px;flex:none;font-size:12px;color:var(--mut);padding-top:2px}
 .item .n{flex:1;min-width:0}
-.pd{font-size:11px;color:#2f6f3e;margin-top:3px}.pdw{display:inline-block;position:relative;margin-top:4px;padding:3px 7px;border:1px solid #b9d6c0;border-radius:8px;background:#f1f8f3;white-space:nowrap;overflow:hidden}.pdw.no{color:var(--mut);border-color:var(--line);background:#fafafa}.pdw.late{border-color:#e6b3af;background:#fdf1f0}.pdi{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;border:0;padding:0;font-size:16px}.pd.late{color:#b3261e;font-weight:700}
+.pd{font-size:11px;color:#2f6f3e;margin-top:3px}.pdi{display:block;width:100%;box-sizing:border-box;margin-top:4px;padding:2px 3px;font-size:11px;border:1px solid var(--line);border-radius:6px;background:#fafafa;color:#2f6f3e;min-height:24px}.pd.rq{color:#7a5b00;font-weight:600;margin-top:4px;line-height:1.25}.pd.late{color:#b3261e;font-weight:700}
 .item .n div{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:15px}
 .item .n small{color:var(--mut);font-size:13px}
 .item .r{flex:none;text-align:right;font-size:13px;min-width:70px}
@@ -85,6 +85,7 @@ function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return
 function fmt(n){n=Math.round(n*100)/100;return String(n).replace(".",",")}
 function iso(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
 function ru(s){if(!s)return"";var p=s.slice(0,10).split("-");return p[2]+"."+p[1]+"."+p[0]}
+function reqDue(code){var f=null;S.draft.lines.forEach(function(l){if(l.code===code||l.replCode===code)f=[S.draft.no||nextNo(),l.due||S.draft.due]});if(f)return f;for(var i=S.reqs.length-1;i>=0;i--){var r=S.reqs[i];if(r.corr)continue;for(var j=0;j<r.lines.length;j++){var l=r.lines[j];if(l.code===code||l.replCode===code)return[r.no,l.due||r.due]}}return null}
 function sd(s){return s?ru(s).slice(0,5):""}
 function dueInfo(r){var m={};r.lines.forEach(function(l){m[l.due||r.due]=1});var k=Object.keys(m).sort();return k.length>1?"по позициям (с "+ru(k[0])+")":ru(k[0]||r.due)}
 function addDays(n){var d=new Date();d.setDate(d.getDate()+n);return iso(d)}
@@ -131,8 +132,8 @@ function renderCat(a,f){
   if(!items.length)h+='<div class="empty">Ничего не найдено</div>';
   items.slice(0,200).forEach(function(it){
     var av=avail(it),inD=S.draft.lines.filter(function(l){return l.code===it[1]}).reduce(function(s,l){return s+l.qty},0);
-    var cls=av<=0?"st-bad":(av<it[5]?"st-warn":"st-ok");
-    h+='<div class="item" data-code="'+esc(it[1])+'"><div class="c">'+esc(it[1])+'<label class="pdw pd'+(S.plan[it[1]]?(S.plan[it[1]]<iso(new Date())?' late':''):' no')+'">'+(S.plan[it[1]]?'к '+sd(S.plan[it[1]]):'＋ дата')+'<input class="pdi" type="date" data-code="'+esc(it[1])+'" value="'+esc(S.plan[it[1]]||"")+'"></label></div><div class="n"><div>'+esc(it[3])+'</div><small>'+esc(it[8]||"")+(inD?'<span class="badge">в заявке '+fmt(inD)+'</span>':'')+'</small></div><div class="r '+cls+'"><b>'+fmt(av)+'</b>'+esc(it[4])+'<br><span class="mut">из '+fmt(it[5])+'</span></div></div>';
+    var rd=reqDue(it[1]);rd=rd?'<div class="pd rq">в заявке №'+rd[0]+' к '+sd(rd[1])+'</div>':'';var cls=av<=0?"st-bad":(av<it[5]?"st-warn":"st-ok");
+    h+='<div class="item" data-code="'+esc(it[1])+'"><div class="c">'+esc(it[1])+'<input class="pdi" type="date" data-code="'+esc(it[1])+'" value="'+esc(S.plan[it[1]]||"")+'" title="Плановая дата">'+rd+'</div><div class="n"><div>'+esc(it[3])+'</div><small>'+esc(it[8]||"")+(inD?'<span class="badge">в заявке '+fmt(inD)+'</span>':'')+'</small></div><div class="r '+cls+'"><b>'+fmt(av)+'</b>'+esc(it[4])+'<br><span class="mut">из '+fmt(it[5])+'</span></div></div>';
   });
   if(items.length>200)h+='<div class="empty">Показаны первые 200 — уточните поиск</div>';
   h+='</div><button class="btn sec big" id="bOut">+ Позиция вне проекта</button>';
@@ -324,7 +325,7 @@ function doShare(r){
 /* ---------- события ---------- */
 function bind(){}
 document.addEventListener("click",function(e){
-  var t=e.target;if(t.closest(".pdw"))return;var b=t.closest("button,.item,.card[data-req],.card[data-all]");if(!b)return;
+  var t=e.target;if(t.classList.contains("pdi"))return;var b=t.closest("button,.item,.card[data-req],.card[data-all]");if(!b)return;
   var id=b.id;
   if(b.dataset.sect!==undefined){S.sect=b.dataset.sect;S.q="";render();return}
   if(b.classList.contains("item")){itemSheet(b.dataset.code);return}
