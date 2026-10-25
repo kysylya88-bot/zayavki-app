@@ -132,7 +132,7 @@ function renderCat(a,f){
   if(!items.length)h+='<div class="empty">Ничего не найдено</div>';
   items.slice(0,200).forEach(function(it){
     var av=avail(it),inD=S.draft.lines.filter(function(l){return l.code===it[1]}).reduce(function(s,l){return s+l.qty},0);
-    var rd=reqDue(it[1]);rd=rd?'<div class="pd rq">в заявке №'+rd[0]+' к '+sd(rd[1])+'</div>':'';var cls=av<=0?"st-bad":(av<it[5]?"st-warn":"st-ok");
+    var rd=reqDue(it[1]);rd=rd?'<div class="pd rq">'+sd(rd[1])+'</div>':'';var cls=av<=0?"st-bad":(av<it[5]?"st-warn":"st-ok");
     h+='<div class="item" data-code="'+esc(it[1])+'"><div class="c">'+esc(it[1])+'<input class="pdi" type="date" data-code="'+esc(it[1])+'" value="'+esc(S.plan[it[1]]||"")+'" title="Плановая дата">'+rd+'</div><div class="n"><div>'+esc(it[3])+'</div><small>'+esc(it[8]||"")+(inD?'<span class="badge">в заявке '+fmt(inD)+'</span>':'')+'</small></div><div class="r '+cls+'"><b>'+fmt(av)+'</b>'+esc(it[4])+'<br><span class="mut">из '+fmt(it[5])+'</span></div></div>';
   });
   if(items.length>200)h+='<div class="empty">Показаны первые 200 — уточните поиск</div>';
