@@ -118,7 +118,7 @@ function render(){
 function hdr(){
   var un=CFG.api?S.reqs.filter(function(r){return !r.synced}).length:0;
   $("hTitle").textContent=S.snap?(S.snap.label||"Заявки"):"Заявки на объекте";
-  $("hSub").textContent=(CFG.api&&(!AUTH||!AUTH.token))?"вход по рабочей почте":(S.snap?("Реестр от "+ru(S.snap.date)+" · заявка №"+(S.draft.no||nextNo())+(un?" · ждёт связи: "+un:"")):"реестр не загружен");
+  $("hSub").textContent=(CFG.api&&(!AUTH||!AUTH.token))?"вход по фамилии":(S.snap?("Реестр от "+ru(S.snap.date)+" · заявка №"+(S.draft.no||nextNo())+(un?" · ждёт связи: "+un:"")):"реестр не загружен");
   var n=$("net");n.textContent=navigator.onLine?"онлайн":"офлайн";n.className="pill"+(navigator.onLine?"":" off");
 }
 function renderCat(a,f){
@@ -384,7 +384,7 @@ function menu(){
   h+='<button class="btn sec big" id="mHist" style="margin-top:8px">Заявки</button>';
   if(CFG.api&&AUTH&&AUTH.objects&&AUTH.objects.length>1)h+='<button class="btn sec big" id="mObj" style="margin-top:8px">Сменить объект</button>';
   h+='<button class="btn bad big" id="mClear" style="margin-top:8px">Очистить черновик</button>';
-  if(CFG.api&&AUTH)h+='<button class="btn sec big" id="mPass" style="margin-top:8px">Сменить пароль</button><button class="btn sec big" id="mLogout" style="margin-top:8px">Выйти</button>';
+  if(CFG.api&&AUTH)h+='<button class="btn sec big" id="mLogout" style="margin-top:8px">Выйти</button>';
   h+='<button class="btn sec big" id="sClose" style="margin-top:8px">Закрыть</button>';
   openSheet(h);
 }
@@ -491,17 +491,18 @@ function uid(){return window.crypto&&crypto.randomUUID?crypto.randomUUID():"c"+D
 function api(body){return fetch(CFG.api,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(body)}).then(function(r){return r.json()})}
 function saveAuth(){try{localStorage.setItem("bitreq-auth",JSON.stringify(AUTH))}catch(e){}}
 function renderLogin(a,f){
-  a.innerHTML='<div class="card"><h2>Вход</h2><p class="mut">Рабочая почта и пароль, который пришёл вам на почту.</p><label>Почта</label><input id="lEmail" type="email" autocomplete="username" inputmode="email" placeholder="name@upiterstroy.ru" value="'+esc((AUTH&&AUTH.email)||"")+'"><label>Пароль</label><input id="lPass" type="password" autocomplete="current-password"><div id="lErr" class="mut" style="color:#b3261e;margin-top:8px"></div><button class="btn big" id="bLogin" style="margin-top:12px">Войти</button></div>';
+  a.innerHTML='<div class="card"><h2>Вход</h2><p class="mut">Введите свою фамилию. Если в списке есть однофамильцы, добавьте инициалы: «Иванов И.П.».</p><label>Фамилия</label><input id="lName" type="text" autocomplete="family-name" autocapitalize="words" value="'+esc((AUTH&&AUTH.lname)||"")+'"><div id="lErr" class="mut" style="color:#b3261e;margin-top:8px"></div><button class="btn big" id="bLogin" style="margin-top:12px">Войти</button></div>';
   f.innerHTML="";
 }
 function doLogin(){
-  var em=$("lEmail").value.trim().toLowerCase(),pw=$("lPass").value;
-  if(!em||!pw){$("lErr").textContent="Введите почту и пароль";return}
+  var nm=$("lName").value.trim();
+  if(!nm){$("lErr").textContent="Введите фамилию";return}
   $("lErr").textContent="Проверяю…";
-  api({a:"login",email:em,password:pw}).then(function(d){
+  api({a:"login",name:nm}).then(function(d){
     if(!d.ok){$("lErr").textContent=d.error||"Не удалось войти";return}
     var prev=AUTH&&AUTH.obj;
-    AUTH={token:d.token,email:d.email,name:d.name,role:d.role,objects:d.objects,obj:(d.objects.filter(function(o){return o.code===prev})[0]||d.objects[0]||{}).code||""};
+    AUTH={token:d.token,email:d.email,name:d.name,role:d.role,lname:nm,objects:d.objects,obj:(d.objects.filter(function(o){return o.code===prev})[0]||d.objects[0]||{}).code||""};
+    if(!d.objects.length){AUTH.token="";saveAuth();$("lErr").textContent="Для вас не назначен ни один объект. Обратитесь в снабжение.";return}
     saveAuth();resetS();load();S.view="cat";render();sync(true);
   }).catch(function(){$("lErr").textContent="Нет связи с сервером. Проверьте интернет."});
 }

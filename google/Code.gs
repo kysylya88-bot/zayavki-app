@@ -138,22 +138,38 @@ function auth_(token) {
   return info;
 }
 
+// нормализация ФИО: нижний регистр, ё=е, без точек и лишних пробелов
+function normName_(v) { return str_(v).toLowerCase().replace(/ё/g, 'е').replace(/[.,]/g, ' ').replace(/\s+/g, ' ').trim(); }
+
+// Вход по фамилии (без пароля). Можно написать «Иванов» или «Иванов И.П.».
+// Если однофамильцев несколько, нужны инициалы.
 function login_(o) {
-  var email = str_(o.email).toLowerCase(), pw = String(o.password || '');
-  if (email.slice(-DOMAIN.length) !== DOMAIN) return { ok: false, error: 'Нужна рабочая почта ' + DOMAIN };
-  var cache = CacheService.getScriptCache(), fk = 'f:' + email;
+  var q = normName_(o.name);
+  if (!q) return { ok: false, error: 'Введите фамилию' };
+  var cache = CacheService.getScriptCache(), fk = 'f:' + q;
   var fails = parseInt(cache.get(fk) || '0', 10);
   if (fails >= MAX_FAILS) return { ok: false, error: 'Слишком много попыток. Попробуйте через 15 минут.' };
-  var u = findUser_(email);
-  var bad = function () { cache.put(fk, String(fails + 1), 900); log_(email, 'вход: ошибка', ''); return { ok: false, error: 'Неверная почта или пароль' }; };
-  if (!u || !yes_(u.row[4])) return bad();
-  var salt = str_(u.row[5]), hash = str_(u.row[6]);
-  if (!hash) return { ok: false, error: 'Пароль ещё не выдан. Обратитесь в снабжение.' };
-  if (sha_(salt + pw) !== hash) return bad();
+  var qt = q.split(' '), qs = qt[0], qi = qt.slice(1).map(function (t) { return t.charAt(0); }).join('');
+  if (qt.length === 2 && qt[1].length > 1 && qt[1].length <= 3) qi = qt[1]; // «И.П.» без пробела -> «ип»
+  var rows = readAll_('USERS'), hits = [], i;
+  for (i = 0; i < rows.length; i++) {
+    if (!yes_(rows[i][4])) continue;
+    var ut = normName_(rows[i][1]).split(' ');
+    if (ut[0] !== qs) continue;
+    var ui = ut.slice(1).map(function (t) { return t.charAt(0); }).join('');
+    if (qi === '' || ui.indexOf(qi) === 0) hits.push(i);
+  }
+  if (hits.length === 0) {
+    cache.put(fk, String(fails + 1), 900);
+    log_(q, 'вход: не найден', '');
+    return { ok: false, error: 'Такой фамилии нет в списке. Проверьте написание или обратитесь в снабжение.' };
+  }
+  if (hits.length > 1) return { ok: false, error: 'Есть однофамильцы. Введите фамилию и инициалы, например «' + str_(rows[hits[0]][1]).split(' ')[0] + ' И.О.»' };
+  var row = rows[hits[0]], email = str_(row[0]).toLowerCase();
   cache.remove(fk);
-  var info = userInfo_(u.row);
-  log_(email, 'вход', '');
-  return { ok: true, token: makeToken_(email, info.ver), name: info.name, role: info.role, email: email, objects: userObjects_(u.row) };
+  var info = userInfo_(row);
+  log_(email, 'вход по фамилии', '');
+  return { ok: true, token: makeToken_(email, info.ver), name: info.name, role: info.role, email: email, objects: userObjects_(row) };
 }
 
 function passwd_(o) {
@@ -385,9 +401,6 @@ function doGet() { return ContentService.createTextOutput('Заявки: сер�
 function onOpen() {
   try {
     SpreadsheetApp.getUi().createMenu('Заявки')
-      .addItem('Выдать пароли новым сотрудникам', 'issuePasswords')
-      .addItem('Сбросить пароль выбранному сотруднику', 'resetPassword')
-      .addSeparator()
       .addItem('Загрузить реестр объекта (файл из Excel)…', 'importSnapshotDialog')
       .addItem('Отметить выбранные заявки как загруженные в реестр', 'markLoaded')
       .addItem('Выгрузить заявки в csv для Excel-реестра', 'exportCsv')
