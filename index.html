@@ -73,8 +73,10 @@ table.t td{padding:7px 4px;border-bottom:1px solid var(--line);vertical-align:to
 
 <script>
 "use strict";
-var CFG={api:""},AUTH=null;
-function KEYo(){return "bitreq1"+(CFG.api&&AUTH&&AUTH.obj?":"+AUTH.obj:"")}
+var CFG={api:""},AUTH=null,LO="";
+/* без сервера: объект выбирается ссылкой ?o=m32 (у каждого объекта свои данные на телефоне) */
+try{var _q=new URLSearchParams(location.search).get("o");if(_q!==null){LO=_q.replace(/[^A-Za-z0-9_-]/g,"").slice(0,20);localStorage.setItem("bitreq-lo",LO)}else{LO=localStorage.getItem("bitreq-lo")||""}}catch(e){}
+function KEYo(){return "bitreq1"+(CFG.api&&AUTH&&AUTH.obj?":"+AUTH.obj:(LO?":L"+LO:""))}
 var S={snap:null,draft:{no:null,lines:[],due:"",author:""},reqs:[],plan:{},srv:{pend:{},max:0,all:[],last:""},view:"cat",sect:null,q:"",set:{author:"",days:7}};
 function load(){try{var j=localStorage.getItem(KEYo());if(j){var o=JSON.parse(j);for(var k in o)S[k]=o[k];}}catch(e){}}
 function save(){try{localStorage.setItem(KEYo(),JSON.stringify({snap:S.snap,draft:S.draft,reqs:S.reqs,plan:S.plan,srv:S.srv,set:S.set}));}catch(e){toast("Не удалось сохранить данные на телефоне");}}
@@ -475,7 +477,7 @@ if("serviceWorker" in navigator&&/^https?:/.test(location.protocol)){navigator.s
 function hsh(t){var h=0,i;for(i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))|0;return t.length+":"+h}
 function autoSync(){
   if(!/^https?:/.test(location.protocol)||!navigator.onLine||!window.fetch)return;
-  fetch("snapshot.json?t="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){
+  fetch("snapshot"+(LO?"-"+LO:"")+".json?t="+Date.now(),{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){
     t=t.replace(/^\ufeff/,"");var o=JSON.parse(t);if(!o.items||!o.v)throw 0;
     var sig=hsh(t);
     if(S.snap&&S.snap.sig===sig)return;
