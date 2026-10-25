@@ -30,9 +30,9 @@ label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
 .item{display:flex;gap:10px;padding:11px 12px;border-bottom:1px solid var(--line);background:#fff}
 .item:first-child{border-radius:12px 12px 0 0}.item:last-child{border-radius:0 0 12px 12px;border-bottom:0}
 .list{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:10px}
-.item .c{width:64px;flex:none;font-size:12px;color:var(--mut);padding-top:2px}
+.item .c{width:76px;flex:none;font-size:12px;color:var(--mut);padding-top:2px}
 .item .n{flex:1;min-width:0}
-.pd{font-size:11px;color:#2f6f3e;margin-top:3px}.pd.late{color:#b3261e;font-weight:700}
+.pd{font-size:11px;color:#2f6f3e;margin-top:3px}.pdw{display:inline-block;position:relative;margin-top:4px;padding:3px 7px;border:1px solid #b9d6c0;border-radius:8px;background:#f1f8f3;white-space:nowrap;overflow:hidden}.pdw.no{color:var(--mut);border-color:var(--line);background:#fafafa}.pdw.late{border-color:#e6b3af;background:#fdf1f0}.pdi{position:absolute;left:0;top:0;width:100%;height:100%;opacity:0;border:0;padding:0;font-size:16px}.pd.late{color:#b3261e;font-weight:700}
 .item .n div{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:15px}
 .item .n small{color:var(--mut);font-size:13px}
 .item .r{flex:none;text-align:right;font-size:13px;min-width:70px}
@@ -132,7 +132,7 @@ function renderCat(a,f){
   items.slice(0,200).forEach(function(it){
     var av=avail(it),inD=S.draft.lines.filter(function(l){return l.code===it[1]}).reduce(function(s,l){return s+l.qty},0);
     var cls=av<=0?"st-bad":(av<it[5]?"st-warn":"st-ok");
-    h+='<div class="item" data-code="'+esc(it[1])+'"><div class="c">'+esc(it[1])+(S.plan[it[1]]?'<div class="pd'+(S.plan[it[1]]<iso(new Date())?' late':'')+'">к '+sd(S.plan[it[1]])+'</div>':'')+'</div><div class="n"><div>'+esc(it[3])+'</div><small>'+esc(it[8]||"")+(inD?'<span class="badge">в заявке '+fmt(inD)+'</span>':'')+'</small></div><div class="r '+cls+'"><b>'+fmt(av)+'</b>'+esc(it[4])+'<br><span class="mut">из '+fmt(it[5])+'</span></div></div>';
+    h+='<div class="item" data-code="'+esc(it[1])+'"><div class="c">'+esc(it[1])+'<label class="pdw pd'+(S.plan[it[1]]?(S.plan[it[1]]<iso(new Date())?' late':''):' no')+'">'+(S.plan[it[1]]?'к '+sd(S.plan[it[1]]):'＋ дата')+'<input class="pdi" type="date" data-code="'+esc(it[1])+'" value="'+esc(S.plan[it[1]]||"")+'"></label></div><div class="n"><div>'+esc(it[3])+'</div><small>'+esc(it[8]||"")+(inD?'<span class="badge">в заявке '+fmt(inD)+'</span>':'')+'</small></div><div class="r '+cls+'"><b>'+fmt(av)+'</b>'+esc(it[4])+'<br><span class="mut">из '+fmt(it[5])+'</span></div></div>';
   });
   if(items.length>200)h+='<div class="empty">Показаны первые 200 — уточните поиск</div>';
   h+='</div><button class="btn sec big" id="bOut">+ Позиция вне проекта</button>';
@@ -324,7 +324,7 @@ function doShare(r){
 /* ---------- события ---------- */
 function bind(){}
 document.addEventListener("click",function(e){
-  var t=e.target,b=t.closest("button,.item,.card[data-req],.card[data-all]");if(!b)return;
+  var t=e.target;if(t.closest(".pdw"))return;var b=t.closest("button,.item,.card[data-req],.card[data-all]");if(!b)return;
   var id=b.id;
   if(b.dataset.sect!==undefined){S.sect=b.dataset.sect;S.q="";render();return}
   if(b.classList.contains("item")){itemSheet(b.dataset.code);return}
@@ -373,7 +373,7 @@ document.addEventListener("input",function(e){
   if(t.id==="q"){S.q=t.value;var p=t.selectionStart;render();var n=$("q");n.focus();try{n.setSelectionRange(p,p)}catch(x){}}
   else if(t.id==="iQty"||t.id==="rRep"||t.id==="rQty"){var it=find(document.querySelector("#sAdd").dataset.code);if(it)checkQty(it)}
 });
-document.addEventListener("change",function(e){if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;r.synced=false;save();shareSheet(r);sync()}}});
+document.addEventListener("change",function(e){if(e.target.classList.contains("pdi")){var pc=e.target.dataset.code,pv=e.target.value;if(pv)S.plan[pc]=pv;else delete S.plan[pc];save();render();return}if(e.target.id==="sSent"){var r=getReq(e.target.dataset.no);if(r){r.sent=e.target.checked;r.synced=false;save();shareSheet(r);sync()}}});
 $("bg").addEventListener("click",function(){closeSheet();render()});
 function keepDraftFields(){var n=$("dNo");if(n){S.draft.no=parseInt(n.value,10)||null;S.draft.due=$("dDue").value;S.draft.author=$("dAuthor").value;save()}}
 function menu(){
